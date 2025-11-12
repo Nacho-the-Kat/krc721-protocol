@@ -96,39 +96,43 @@ impl Generator {
         }
 
         let progress = Arc::new(Progress::default());
-        self.set_phase(PhaseContext::Archiving { progress });
+        self.set_phase(PhaseContext::Archiving { progress : progress.clone() });
 
         let this = self.clone();
-        tokio::task::spawn_local(async move {
-            let daa_score = this.state.current_daa_score();
-            let archive = PathBuf::from(format!("snapshot-{daa_score}.krc721"));
-            let filename = this.folder.join(&archive);
+        tokio::task::spawn_blocking(move || {
+            let rt = tokio::runtime::Handle::current();
+            rt.block_on(async move {
+                let daa_score = this.state.current_daa_score();
+                let archive = PathBuf::from(format!("snapshot-{daa_score}.krc721"));
+                let filename = this.folder.join(&archive);
 
-            info!("Generating snapshot: {}", filename.display());
+                info!("Generating snapshot: {}", filename.display());
 
-            let snapshot = Snapshot::default()
-                .with_archive(&filename)
-                .skip_partitions(vec!["notification_queue"]);
+                let snapshot = Snapshot::default()
+                    .with_archive(&filename)
+                    .with_progress(progress.clone())
+                    .skip_partitions(vec!["notification_queue"]);
 
-            let partition_snapshots = this.db.take_snapshots();
-            match snapshot.archive_snapshots(partition_snapshots).await {
-                Ok(header) => {
-                    info!("{header}");
+                let partition_snapshots = this.db.take_snapshots();
+                match snapshot.archive_snapshots(partition_snapshots).await {
+                    Ok(header) => {
+                        info!("{header}");
+                    }
+                    Err(err) => {
+                        this.set_phase(PhaseContext::None);
+                        error!("{err}");
+                    }
                 }
-                Err(err) => {
-                    this.set_phase(PhaseContext::None);
-                    error!("{err}");
-                }
-            }
 
-            this.set_phase(PhaseContext::Ready { archive, daa_score });
-            info!("Snapshot is ready: {}", filename.display());
-            if let Ok(metadata) = std::fs::metadata(&filename) {
-                let size = separate_bytes(metadata.len());
-                info!("Snapshot size: {size} bytes",);
-            } else {
-                error!("Failed to get snapshot metadata");
-            }
+                this.set_phase(PhaseContext::Ready { archive, daa_score });
+                info!("Snapshot is ready: {}", filename.display());
+                if let Ok(metadata) = std::fs::metadata(&filename) {
+                    let size = separate_bytes(metadata.len());
+                    info!("Snapshot size: {size} bytes",);
+                } else {
+                    error!("Failed to get snapshot metadata");
+                }
+            });
         });
 
         Ok(())
