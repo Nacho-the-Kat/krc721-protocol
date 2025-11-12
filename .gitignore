@@ -1,0 +1,11 @@
+/target
+**/.idea/
+/.vscode/
+analyzer-target
+.DS_Store
+*.code-workspace
+release
+tree
+*.krc721d
+cluster.toml
+/dumps/

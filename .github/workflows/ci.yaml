@@ -1,0 +1,66 @@
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+
+  lints:
+    name: Lints
+    runs-on: self-hosted
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run cargo fmt
+        run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: self-hosted
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run cargo clippy
+        run: cargo clippy --workspace --all-targets --tests --benches -- -D warnings
+
+  test:
+    name: Tests
+    runs-on: self-hosted
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@cargo-nextest
+
+      - name: Run cargo build krc721d
+        run: cargo build --bin krc721d --release --workspace --all --tests --benches
+
+      - name: Run cargo test regular features
+        run: cargo nextest run --release --workspace
+
+      - name: Run cargo doc tests
+        run: cargo test --doc --release --workspace

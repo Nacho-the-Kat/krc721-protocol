@@ -1,0 +1,46 @@
+name: Build and upload assets
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: self-hosted
+    name: Build Release Assets
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build all binaries
+        run: |
+          cargo build --bin krc721d --release
+          mkdir -p .debpkg/usr/bin
+          cp target/release/krc721d .debpkg/usr/bin/
+          mkdir krc721d-${{ github.event.release.tag_name }}-linux-gnu-amd64 || true
+          cp target/release/krc721d krc721d-${{ github.event.release.tag_name }}-linux-gnu-amd64/
+          archive="krc721d-${{ github.event.release.tag_name }}-linux-gnu-amd64/krc721d-${{ github.event.release.tag_name }}-linux-gnu-amd64.zip"
+          asset_name="krc721d-${{ github.event.release.tag_name }}-linux-gnu-amd64.zip"
+          zip -r "${archive}" ./krc721d-${{ github.event.release.tag_name }}-linux-gnu-amd64/*
+          echo "archive=${archive}" >> $GITHUB_ENV
+          echo "asset_name=${asset_name}" >> $GITHUB_ENV
+
+      - name: Upload Linux binaries
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ${{ env.archive }}
+          asset_name: ${{ env.asset_name }}
+          asset_content_type: application/zip
