@@ -1,14 +1,6 @@
 ## KRC-721 - Kaspa NFT indexer
 
-```
-cargo run --release -- --remote --http --testnet-10 
-```
-
-```
-https://testnet-10.krc721.stream
-https://testnet-11.krc721.stream
-```
-
+This is an archive repository create for public access.
 
 ## Features
 
@@ -52,3 +44,43 @@ sudo apt install nginx
 ```
 
 Configuration files can be found in the [`doc/deployment`](`doc/deployment`) directory.
+
+## Running KRC-721 indexer daemon
+
+You can run via cargo or the binary directly:
+```
+# via cargo
+cargo run --release -- --help
+# daemon directly
+./krc721d --help
+./target/release/krc721d --help
+```
+
+IMPORTANT: Before running the indexer, you must run and synchronize the integrated Rusty Kaspa node.
+Once the node is synced, stop the indexer, sync it's state with another indexer and restart it.
+The sequence of these steps is important due to the fact that the Rusty Kaspa node may take long
+time to synchronize, resulting in the indexer state becoming outdated.
+
+### 1. Sync kaspa node
+```bash
+./krc721d --mainnet --local
+```
+
+### 2. Sync indexer state from another indexer
+```bash
+./krc721d --mainnet --sync=https://mainnet.krc721.stream
+```
+
+### 3. Start the indexer
+```bash
+./krc721d --mainnet --local --http
+```
+
+
+## Test Deployments
+
+You should always run your own indexer in production mode. The following indexers are available for development purposes:
+
+- https://mainnet.krc721.stream
+- https://testnet-10.krc721.stream
+

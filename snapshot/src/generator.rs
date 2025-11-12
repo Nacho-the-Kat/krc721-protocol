@@ -96,7 +96,9 @@ impl Generator {
         }
 
         let progress = Arc::new(Progress::default());
-        self.set_phase(PhaseContext::Archiving { progress : progress.clone() });
+        self.set_phase(PhaseContext::Archiving {
+            progress: progress.clone(),
+        });
 
         let this = self.clone();
         tokio::task::spawn_blocking(move || {
