@@ -76,6 +76,12 @@ time to synchronize, resulting in the indexer state becoming outdated.
 ./krc721d --mainnet --local --http
 ```
 
+## Node Failure and Pruning
+
+If the node fails for any reason, stopped or disconnected from the network, eventually the indexer state will become outdated.
+
+- You can use `--retention-period-days` flag to extend the node pruning period
+- You should run at least 2 instances to be able to recover one from another in case of a failure.
 
 ## Test Deployments
 
