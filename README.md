@@ -1,6 +1,6 @@
 ## KRC-721 - Kaspa NFT indexer
 
-This is an archive repository create for public access.
+This is an archive repository created for public access.
 
 ## Features
 
