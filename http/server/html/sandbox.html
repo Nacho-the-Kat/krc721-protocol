@@ -1,92 +1,353 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <title>Kaspa KRC-721 indexer</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Sandbox - KRC-721 Indexer</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Mono:wght@100..900&family=Roboto:ital,wght@0,100..900;1,100..900&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #111118;
+            --bg-card: #151520;
+            --bg-card-hover: #1a1a28;
+            --border-color: #252535;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --text-tertiary: #6b6b7f;
+            --accent-primary: #1deac5;
+            --accent-secondary: #12b89a;
+            --accent-glow: rgba(29, 234, 197, 0.15);
+            --success: #10b981;
+            --error: #ef4444;
+            --gradient-primary: linear-gradient(135deg, #1deac5 0%, #12b89a 100%);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 24px rgba(29, 234, 197, 0.2);
+        }
 
         * {
-            font-family: Ubuntu Mono, Consolas, Monaco, monospace;
-            font-size: 18px;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 15px;
+            line-height: 1.6;
+            background: var(--bg-primary);
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(29, 234, 197, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(29, 234, 197, 0.02) 0%, transparent 50%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 0;
+            margin: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 24px;
+            width: 100%;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 48px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 2px;
+            background: var(--gradient-primary);
+            border-radius: 2px;
+        }
+
+        .header-title {
+            font-size: 42px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 12px;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.1;
+        }
+
+        .header-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--accent-primary);
+            background: rgba(29, 234, 197, 0.1);
+        }
+
+        /* Endpoint Section */
         .endpoint-section {
-            margin: 20px;
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .url-preview {
-            color: #072c42;
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 3px;
+
+        .endpoint-section:hover {
+            border-color: var(--accent-primary);
+            box-shadow: var(--shadow-md);
         }
-        .url-description {
-            background-color: #f0f0f0;
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 3px;
+
+        .endpoint-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent-primary);
+            margin-bottom: 20px;
+            word-break: break-all;
         }
-        input[type="text"] {
-            padding: 5px;
-            margin: 5px;
-            width: 200px;
+
+        .endpoint-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+            align-items: center;
         }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 180px;
+        }
+
+        .input-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input[type="text"],
+        select {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            padding: 10px 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .example-select {
+            min-width: 240px;
+        }
+
         button {
-            padding: 5px 15px;
-            margin: 5px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 10px 24px;
+            background: var(--gradient-primary);
+            color: #000;
+            border: none;
+            border-radius: 8px;
             cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
         }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .next-page-btn {
+            background: var(--bg-secondary);
+            color: var(--accent-primary);
+            border: 1px solid var(--accent-primary);
+        }
+
+        .next-page-btn:hover {
+            background: rgba(29, 234, 197, 0.1);
+        }
+
+        .next-page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .url-preview {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            word-break: break-all;
+            border: 1px solid var(--border-color);
+        }
+
         .json-response {
-            margin-top: 10px;
-            padding: 10px;
-            border: 1px solid black;
-            max-height: 300px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            max-height: 500px;
             overflow-y: auto;
             white-space: pre-wrap;
             word-wrap: break-word;
-        }
-        span.number {
-            color: rgb(11, 103, 20);
-        }
-
-        span.key {
-            color: rgb(22, 32, 110);
+            margin-top: 16px;
+            display: none;
         }
 
-        span.string {
-            color: rgb(16, 115, 105);
+        .json-response.show {
+            display: block;
         }
 
-        span.boolean {
-            color: rgb(91, 9, 0);
+        .pagination-info {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: rgba(29, 234, 197, 0.1);
+            border: 1px solid var(--accent-primary);
+            border-radius: 8px;
+            font-size: 13px;
+            display: none;
         }
 
-        span.keyword {
-            color: rgb(2, 83, 67);
+        .pagination-info.show {
+            display: block;
         }
-        a {
-            color: rgb(13, 113, 95);
-            text-decoration: none;
+
+        .pagination-info code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-card);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent-primary);
         }
-        a:hover {
-            color: rgb(13, 62, 53);
+
+        /* JSON Syntax Highlighting */
+        .json-response .number {
+            color: var(--success);
+        }
+
+        .json-response .key {
+            color: var(--accent-primary);
+        }
+
+        .json-response .string {
+            color: #fbbf24;
+        }
+
+        .json-response .boolean {
+            color: #f472b6;
+        }
+
+        .json-response .null {
+            color: var(--text-tertiary);
+        }
+
+        .error-message {
+            color: var(--error);
+            font-weight: 500;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .content {
+                padding: 24px 16px;
+            }
+
+            .header-title {
+                font-size: 32px;
+            }
+
+            .endpoint-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .input-group {
+                min-width: 100%;
+            }
+
+            button {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
-    <span>
-        Kaspa KRC-721 Indexer 
-        v{{version}}
-        <span style="color: #555555;">∙</span>
-        <a href="/">Home</a>
-        <span style="color: #555555;">∙</span>
-        <a href="/docs" target="_blank">Documentation</a>
-    </span>
-    <br/>
-    <div id="endpoints-container"></div>
+    <div class="content">
+        <div class="header">
+            <h1 class="header-title">API Sandbox</h1>
+            <nav class="header-nav">
+                <a href="/" class="nav-link">Home</a>
+                <span style="color: var(--text-tertiary);">•</span>
+                <a href="/docs" target="_blank" class="nav-link">Documentation</a>
+            </nav>
+        </div>
+
+        <div id="endpoints-container"></div>
+    </div>
 
     <script>
-        // Define all API endpoints
         const endpoints = [
             "/api/v1/krc721/{{network}}/status",
             "/api/v1/krc721/{{network}}/nfts",
@@ -106,126 +367,346 @@
             "/api/v1/krc721/{{network}}/ranges/:tick",
         ];
 
-        let paginatedSuffixes = ["nfts", "owners/:tick", ":address", ":address/:tick", "ops", "deployments", "history/:tick/:id"];
+        const paginatedEndpoints = ["nfts", "owners/:tick", ":address", ":address/:tick", "ops", "deployments", "history/:tick/:id"];
+
+        function getOffsetType(url) {
+            if (url.includes('/address/') && !url.includes('/address/:address/:tick')) {
+                return 'ticktoken';
+            } else if (url.includes('/owners/') || url.includes('/address/:address/:tick')) {
+                return 'tokenid';
+            } else {
+                return 'score';
+            }
+        }
 
         function createEndpointSection(url) {
-
-            const isPaginated = paginatedSuffixes.some(suffix => url.endsWith(suffix));
-
+            const isPaginated = paginatedEndpoints.some(suffix => url.endsWith(suffix));
             const section = document.createElement('div');
             section.className = 'endpoint-section';
 
-            // Extract parameters from URL
             const params = url.match(/:[a-zA-Z]+/g) || [];
             const previewId = `preview-${Math.random().toString(36).substr(2, 9)}`;
-            const descriptionId = `description-${Math.random().toString(36).substr(2, 9)}`;
-            // Add URL preview
-            const description = document.createElement('div');
-            description.id = descriptionId;
-            description.className = 'url-description';
-            description.textContent = url;
-            section.appendChild(description);
 
-            // Add input fields for parameters
+            // Endpoint title
+            const title = document.createElement('div');
+            title.className = 'endpoint-title';
+            title.textContent = url;
+            section.appendChild(title);
+
+            // Controls container
+            const controls = document.createElement('div');
+            controls.className = 'endpoint-controls';
+
+            // Path parameters
             params.forEach((param, index) => {
+                const group = document.createElement('div');
+                group.className = 'input-group';
+                const label = document.createElement('label');
+                label.className = 'input-label';
+                label.textContent = param.substring(1);
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.placeholder = param.substring(1);
+                input.placeholder = `Enter ${param.substring(1)}`;
                 input.id = `${previewId}-input-${index}`;
                 input.oninput = () => updatePreview(previewId, url, section);
-                input.onkeypress = (e) => handleEnter(e, previewId);
-                section.appendChild(input);
+                input.onkeypress = (e) => { if (e.key === 'Enter') fetchJson(previewId); };
+                group.appendChild(label);
+                group.appendChild(input);
+                controls.appendChild(group);
             });
 
-            // Add querystring input for endpoints ending with "list"
+            // Pagination controls
             if (isPaginated) {
-                const querystringInput = document.createElement('input');
-                querystringInput.type = 'text';
-                querystringInput.placeholder = 'query string';
-                querystringInput.id = `${previewId}-querystring`;
-                querystringInput.oninput = () => updatePreview(previewId, url, section);
-                querystringInput.onkeypress = (e) => handleEnter(e, previewId);
-                section.appendChild(querystringInput);
+                const offsetType = getOffsetType(url);
+                
+                // Example queries dropdown
+                const exampleGroup = document.createElement('div');
+                exampleGroup.className = 'input-group';
+                const exampleLabel = document.createElement('label');
+                exampleLabel.className = 'input-label';
+                exampleLabel.textContent = 'Example';
+                const exampleSelect = document.createElement('select');
+                exampleSelect.className = 'example-select';
+                exampleSelect.id = `${previewId}-examples`;
+                exampleSelect.innerHTML = `
+                    <option value="">Select example...</option>
+                    <option value="limit=10">First 10 items</option>
+                    <option value="limit=10&direction=backward">Latest 10 items</option>
+                    <option value="limit=20&direction=forward">First 20 items</option>
+                    ${offsetType === 'score' ? '<option value="offset=13000000000000&limit=10">Next page (Score)</option>' : ''}
+                    ${offsetType === 'tokenid' ? '<option value="offset=51&limit=10">Next page (TokenId)</option>' : ''}
+                    ${offsetType === 'ticktoken' ? '<option value="offset=FOO-123&limit=10">Next page (Tick-TokenId)</option>' : ''}
+                `;
+                exampleSelect.onchange = () => applyExample(previewId, exampleSelect.value, url, section);
+                exampleGroup.appendChild(exampleLabel);
+                exampleGroup.appendChild(exampleSelect);
+                controls.appendChild(exampleGroup);
+
+                // Pagination inputs
+                const offsetGroup = document.createElement('div');
+                offsetGroup.className = 'input-group';
+                const offsetLabel = document.createElement('label');
+                offsetLabel.className = 'input-label';
+                offsetLabel.textContent = `Offset (${offsetType})`;
+                const offsetInput = document.createElement('input');
+                offsetInput.type = 'text';
+                offsetInput.placeholder = 'Optional';
+                offsetInput.id = `${previewId}-offset`;
+                offsetInput.oninput = () => updatePreview(previewId, url, section);
+                offsetInput.onkeypress = (e) => { if (e.key === 'Enter') fetchJson(previewId); };
+                offsetGroup.appendChild(offsetLabel);
+                offsetGroup.appendChild(offsetInput);
+                controls.appendChild(offsetGroup);
+
+                const limitGroup = document.createElement('div');
+                limitGroup.className = 'input-group';
+                const limitLabel = document.createElement('label');
+                limitLabel.className = 'input-label';
+                limitLabel.textContent = 'Limit';
+                const limitInput = document.createElement('input');
+                limitInput.type = 'text';
+                limitInput.placeholder = '50';
+                limitInput.value = '50';
+                limitInput.id = `${previewId}-limit`;
+                limitInput.oninput = () => updatePreview(previewId, url, section);
+                limitInput.onkeypress = (e) => { if (e.key === 'Enter') fetchJson(previewId); };
+                limitGroup.appendChild(limitLabel);
+                limitGroup.appendChild(limitInput);
+                controls.appendChild(limitGroup);
+
+                const directionGroup = document.createElement('div');
+                directionGroup.className = 'input-group';
+                const directionLabel = document.createElement('label');
+                directionLabel.className = 'input-label';
+                directionLabel.textContent = 'Direction';
+                const directionInput = document.createElement('input');
+                directionInput.type = 'text';
+                directionInput.placeholder = 'forward/backward';
+                directionInput.id = `${previewId}-direction`;
+                directionInput.oninput = () => updatePreview(previewId, url, section);
+                directionInput.onkeypress = (e) => { if (e.key === 'Enter') fetchJson(previewId); };
+                directionGroup.appendChild(directionLabel);
+                directionGroup.appendChild(directionInput);
+                controls.appendChild(directionGroup);
             }
 
-            // Add URL preview
+            section.appendChild(controls);
+
+            // URL preview
             const preview = document.createElement('div');
             preview.id = previewId;
             preview.className = 'url-preview';
             preview.textContent = url;
-            section.appendChild(preview);
-            if (!params.length && !isPaginated) {
+            if (params.length === 0 && !isPaginated) {
                 preview.style.display = 'none';
             }
+            section.appendChild(preview);
 
-            // Add Go button
-            const button = document.createElement('button');
-            button.textContent = 'Go';
-            button.onclick = () => fetchJson(previewId);
-            section.appendChild(button);
+            // Action buttons
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.display = 'flex';
+            buttonContainer.style.gap = '12px';
+            buttonContainer.style.marginTop = '16px';
 
-            // Add JSON response area
+            const goButton = document.createElement('button');
+            goButton.textContent = 'Fetch';
+            goButton.onclick = () => fetchJson(previewId);
+            buttonContainer.appendChild(goButton);
+
+            if (isPaginated) {
+                const nextButton = document.createElement('button');
+                nextButton.textContent = 'Next Page';
+                nextButton.className = 'next-page-btn';
+                nextButton.id = `${previewId}-next-btn`;
+                nextButton.style.display = 'none';
+                nextButton.onclick = () => fetchNextPage(previewId, url, section);
+                buttonContainer.appendChild(nextButton);
+            }
+
+            section.appendChild(buttonContainer);
+
+            // Response area
             const responseArea = document.createElement('div');
             responseArea.id = `${previewId}-response`;
             responseArea.className = 'json-response';
-            responseArea.style.display = 'none';
             section.appendChild(responseArea);
+
+            // Pagination info
+            if (isPaginated) {
+                const paginationInfo = document.createElement('div');
+                paginationInfo.id = `${previewId}-pagination-info`;
+                paginationInfo.className = 'pagination-info';
+                section.appendChild(paginationInfo);
+            }
 
             return section;
         }
 
         function updatePreview(previewId, template, section) {
             const preview = document.getElementById(previewId);
+            if (!preview) return;
+            
             let url = template;
             
-            // Get all inputs in this section
+            // Update path parameters (non-pagination inputs)
             const inputs = Array.from(section.getElementsByTagName('input'));
             
-            // Replace each parameter with its input value
             inputs.forEach(input => {
-                if (input.id.endsWith('-querystring')) {
-                    // Handle querystring separately
-                    const querystring = input.value.trim();
-                    if (querystring) {
-                        url = `${url}?${querystring}`;
+                // Skip pagination inputs
+                if (input.id.includes('-offset') || input.id.includes('-limit') || input.id.includes('-direction')) {
+                    return;
+                }
+                
+                // Get parameter name from label
+                const label = input.previousElementSibling;
+                if (label && label.className === 'input-label') {
+                    const param = label.textContent.trim();
+                    if (param) {
+                        url = url.replace(`:${param}`, input.value || `:${param}`);
                     }
-                } else {
-                    const param = input.placeholder;
-                    url = url.replace(`:${param}`, input.value);
                 }
             });
+            
+            // Build query string from pagination inputs
+            const queryParams = [];
+            const offsetInput = document.getElementById(`${previewId}-offset`);
+            const limitInput = document.getElementById(`${previewId}-limit`);
+            const directionInput = document.getElementById(`${previewId}-direction`);
+            
+            if (offsetInput && offsetInput.value.trim()) {
+                queryParams.push(`offset=${encodeURIComponent(offsetInput.value.trim())}`);
+            }
+            if (limitInput && limitInput.value.trim()) {
+                queryParams.push(`limit=${encodeURIComponent(limitInput.value.trim())}`);
+            }
+            if (directionInput && directionInput.value.trim()) {
+                queryParams.push(`direction=${encodeURIComponent(directionInput.value.trim())}`);
+            }
+            
+            if (queryParams.length > 0) {
+                url = `${url}?${queryParams.join('&')}`;
+            }
             
             preview.textContent = url;
         }
 
+        function applyExample(previewId, example, template, section) {
+            if (!example) {
+                // Clear all pagination fields when "Select example..." is chosen
+                const offsetInput = document.getElementById(`${previewId}-offset`);
+                const limitInput = document.getElementById(`${previewId}-limit`);
+                const directionInput = document.getElementById(`${previewId}-direction`);
+                
+                if (offsetInput) offsetInput.value = '';
+                if (limitInput) limitInput.value = '50'; // Reset to default
+                if (directionInput) directionInput.value = '';
+                
+                updatePreview(previewId, template, section);
+                return;
+            }
+            
+            // Parse example parameters
+            const params = example.split('&');
+            const exampleParams = {};
+            params.forEach(param => {
+                const [key, value] = param.split('=');
+                if (key && value) {
+                    exampleParams[key] = decodeURIComponent(value);
+                }
+            });
+            
+            // Update pagination fields - set values from example or clear if not present
+            const offsetInput = document.getElementById(`${previewId}-offset`);
+            const limitInput = document.getElementById(`${previewId}-limit`);
+            const directionInput = document.getElementById(`${previewId}-direction`);
+            
+            if (offsetInput) {
+                offsetInput.value = exampleParams.offset || '';
+            }
+            if (limitInput) {
+                limitInput.value = exampleParams.limit || '50';
+            }
+            if (directionInput) {
+                directionInput.value = exampleParams.direction || '';
+            }
+            
+            // Update preview after setting all values
+            updatePreview(previewId, template, section);
+        }
+
         async function fetchJson(previewId) {
-            const url = document.getElementById(previewId).textContent;
+            const preview = document.getElementById(previewId);
+            const url = preview.textContent;
             const responseArea = document.getElementById(`${previewId}-response`);
+            const paginationInfo = document.getElementById(`${previewId}-pagination-info`);
+            const nextPageBtn = document.getElementById(`${previewId}-next-btn`);
 
-            // Show response area and loading message
-            responseArea.style.display = 'block';
-            responseArea.textContent = 'Requesting...';
+            responseArea.className = 'json-response show';
+            responseArea.textContent = 'Loading...';
+            
+            if (paginationInfo) paginationInfo.className = 'pagination-info';
+            if (nextPageBtn) nextPageBtn.style.display = 'none';
 
-            if (url.replace(/kaspatest:|kaspa:/, '').includes(":")) {
-                responseArea.innerHTML = "<span style='color: #884444;'>Please fill in all parameters</span>";
+            if (url.includes(":")) {
+                responseArea.innerHTML = '<span class="error-message">Please fill in all required parameters</span>';
                 return;
             }
 
             try {
                 const response = await fetch(url);
-                if (!response.ok) {  // response.ok is true if status code is 200-299
-                    responseArea.innerHTML = `<span style='color: #884444;'>Error: ${response.status} - ${response.statusText}</span>`;
+                const contentType = response.headers.get('content-type');
+                
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    responseArea.innerHTML = `<span class="error-message">HTTP ${response.status}: ${text}</span>`;
                     return;
                 }
+                
+                if (!response.ok) {
+                    try {
+                        const data = await response.json();
+                        responseArea.innerHTML = `<span class="error-message">Error ${response.status}: ${data.message || response.statusText}</span>`;
+                    } catch (e) {
+                        responseArea.innerHTML = `<span class="error-message">Error ${response.status}: ${response.statusText}</span>`;
+                    }
+                    return;
+                }
+                
                 const data = await response.json();
                 responseArea.innerHTML = stringify(data);
+                
+                if (paginationInfo && data.hasOwnProperty('next')) {
+                    const resultCount = Array.isArray(data.result) ? data.result.length : (data.result ? 1 : 0);
+                    const hasNext = data.next !== null && data.next !== undefined;
+                    
+                    let infoHtml = `<strong>Pagination:</strong> ${resultCount} items`;
+                    if (hasNext) {
+                        infoHtml += ` • Next: <code>${data.next}</code>`;
+                        if (nextPageBtn) {
+                            nextPageBtn.style.display = 'inline-block';
+                            nextPageBtn.dataset.nextOffset = data.next;
+                        }
+                    } else {
+                        infoHtml += ` • Last page`;
+                    }
+                    
+                    paginationInfo.innerHTML = infoHtml;
+                    paginationInfo.className = 'pagination-info show';
+                }
             } catch (error) {
-                responseArea.textContent = `Error: ${error.message}`;
+                responseArea.innerHTML = `<span class="error-message">Error: ${error.message}</span>`;
             }
         }
 
-        function handleEnter(event, previewId) {
-            if (event.key === 'Enter') {
+        function fetchNextPage(previewId, template, section) {
+            const nextPageBtn = document.getElementById(`${previewId}-next-btn`);
+            const offsetInput = document.getElementById(`${previewId}-offset`);
+            
+            if (nextPageBtn && nextPageBtn.dataset.nextOffset) {
+                if (offsetInput) {
+                    offsetInput.value = nextPageBtn.dataset.nextOffset;
+                    updatePreview(previewId, template, section);
+                }
                 fetchJson(previewId);
             }
         }
@@ -252,7 +733,6 @@
             });
         }
 
-        // Generate the interface
         document.addEventListener('DOMContentLoaded', () => {
             const container = document.getElementById('endpoints-container');
             endpoints.forEach(url => {

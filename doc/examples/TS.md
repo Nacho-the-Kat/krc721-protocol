@@ -62,7 +62,7 @@ interface Metadata {
 interface Attribute {
     traitType: string; // The name/type of the trait (e.g. "Background", "Eyes", "Rarity")
     value: string; // The value of the trait (e.g. "Blue", "Gold", "Rare")
-    displayType: string; // The display type hint (e.g. "date", "boost_percentage")
+    displayType?: string; // Optional display type hint (e.g. "date", "boost_percentage")
 }
 
 ```

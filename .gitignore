@@ -1,4 +1,6 @@
 /target
+setup-logs/
+setup-logs-testnet-10/
 **/.idea/
 /.vscode/
 analyzer-target
@@ -9,3 +11,4 @@ tree
 *.krc721d
 cluster.toml
 /dumps/
+setup-output.log

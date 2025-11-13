@@ -43,37 +43,76 @@ Optionally:
 sudo apt install nginx
 ```
 
-Configuration files can be found in the [`doc/deployment`](`doc/deployment`) directory.
+Configuration files can be found in the [`doc/deployment`](doc/deployment) directory.
+
+## Documentation
+
+- **[API Documentation](doc/README.md)** - Complete REST API documentation
+- **[Running Guide](setup/RUNNING_GUIDE.md)** - Detailed setup and running instructions
+- **[Setup Scripts](setup/)** - Automated setup and control scripts
 
 ## Running KRC-721 indexer daemon
 
-You can run via cargo or the binary directly:
-```
-# via cargo
-cargo run --release -- --help
-# daemon directly
-./krc721d --help
-./target/release/krc721d --help
+### 🚀 Quick Start (Recommended)
+
+For automated, unattended setup, use the setup scripts in the `setup/` directory:
+
+```bash
+# Automated setup (recommended)
+./setup/setup-krc721-indexer.sh --mainnet
+
+# Or for testnet-10
+./setup/setup-krc721-indexer.sh --testnet-10
 ```
 
-IMPORTANT: Before running the indexer, you must run and synchronize the integrated Rusty Kaspa node.
-Once the node is synced, stop the indexer, sync it's state with another indexer and restart it.
-The sequence of these steps is important due to the fact that the Rusty Kaspa node may take long
+This script automates the complete setup process:
+1. ✅ Syncs the Kaspa node (monitors for completion)
+2. ✅ Purges any existing database (safety)
+3. ✅ Syncs indexer state from remote
+4. ✅ Starts the full indexer with HTTP server
+
+**Check status anytime:**
+```bash
+./setup/krc721-indexer-ctl.sh status    # Check current status
+./setup/krc721-indexer-ctl.sh logs      # View recent logs
+./setup/krc721-indexer-ctl.sh tail      # Tail logs in real-time
+./setup/krc721-indexer-ctl.sh stop      # Stop the indexer
+```
+
+📚 **For detailed instructions**, see [`setup/RUNNING_GUIDE.md`](setup/RUNNING_GUIDE.md)
+
+### Manual Setup
+
+You can also run the indexer manually. First, build the binary:
+
+```bash
+# Build the binary
+cargo build --release
+
+# Or run via cargo directly
+cargo run --release -- --help
+```
+
+**IMPORTANT**: Before running the indexer, you must run and synchronize the integrated Rusty Kaspa node.
+Once the node is synced, stop the indexer, sync its state with another indexer and restart it.
+The sequence of these steps is important due to the fact that the Rusty Kaspa node may take a long
 time to synchronize, resulting in the indexer state becoming outdated.
 
-### 1. Sync kaspa node
+#### 1. Sync Kaspa node
 ```bash
-./krc721d --mainnet --local
+./target/release/krc721d --mainnet --local
 ```
 
-### 2. Sync indexer state from another indexer
+Wait for the node to fully sync (check logs for `SYNC: true`).
+
+#### 2. Sync indexer state from another indexer
 ```bash
-./krc721d --mainnet --sync=https://mainnet.krc721.stream
+./target/release/krc721d --mainnet --sync=https://krc721.kat.foundation
 ```
 
-### 3. Start the indexer
+#### 3. Start the indexer
 ```bash
-./krc721d --mainnet --local --http
+./target/release/krc721d --mainnet --local --http
 ```
 
 
@@ -81,6 +120,6 @@ time to synchronize, resulting in the indexer state becoming outdated.
 
 You should always run your own indexer in production mode. The following indexers are available for development purposes:
 
-- https://mainnet.krc721.stream
-- https://testnet-10.krc721.stream
+- https://krc721.kat.foundation
+- https://krc721-testnet.kat.foundation
 

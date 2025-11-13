@@ -1,5 +1,10 @@
 # REST API Specifications
 
+**📚 Documentation Index:**
+- [PAGINATION.md](./PAGINATION.md) - Complete pagination guide with examples
+- [FIELD_REFERENCE.md](./FIELD_REFERENCE.md) - All response fields explained
+- [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling guide
+- [KRC-721.md](./KRC-721.md) - Protocol specification
 
 ## Kaspa Networks
 
@@ -20,44 +25,95 @@ All responses are in JSON format. The response result is wrapped in a `Response`
 
 The `message` field is always present and contains a human-readable message describing the result of the request. The `"success"` text in the message field indicates that the request was successful.
 
-If an error occurs (e.g. a resource is not found or some other error), the `message` field will contain an error message and the HTTP status code will be set to `400`.
+If an error occurs (e.g. a resource is not found or some other error), the `message` field will contain an error message and the HTTP status code will be set appropriately (400 for bad requests, 404 for not found, 500 for server errors).
+
+**Error Handling**: See [ERROR_HANDLING.md](./ERROR_HANDLING.md) for complete error handling documentation.
 
 Checking that the `message` field contains `"success"` and the HTTP status code is `200` is a good way to check that the request was successful.
 
 ## Pagination
 
-### Offsets
+**⚠️ IMPORTANT**: Pagination is a critical feature. See [PAGINATION.md](./PAGINATION.md) for comprehensive documentation, examples, and common mistakes.
 
-Resource listing endpoints are paginated if the number of records is more than the user specified limit or a maximum default limit of `50` records.
+### Quick Overview
 
-If the number of records exceeds the limit, the next page offset will be returned in the response specified within the `next` field.
+Resource listing endpoints are paginated if the number of records exceeds the user-specified limit or the maximum default limit of `50` records.
 
-To obtain the next page, the user must provide the `next` value in the `offset` parameter of the query string.
+**Key Points:**
+- Use the `next` value from the response as the `offset` parameter for the next request
+- Offset formats vary by endpoint (numeric Score, numeric TokenId, or string TickTokenOffset)
+- When `next` is `null` or `undefined`, there are no more pages
+- **Never manually increment offsets** - always use the `next` value provided
 
-The following example aggregates all pages until the `next` is `undefined`.
-```
-fetch page
-next = page.next
+### Query Parameters
 
-while next
-    fetch page?offset=next
-    next = page.next
+- **`offset`** (optional): Cursor for pagination. Use the `next` value from the previous response. Format depends on endpoint.
+- **`limit`** (optional): Number of records per page. Default: 50, Maximum: 50.
+- **`direction`** (optional): Iteration direction. Values: `forward` (default) or `backward`/`back`.
+
+### Offset Types by Endpoint
+
+Different endpoints use different offset formats:
+
+| Endpoint | Offset Type | Format | Example |
+|----------|-------------|--------|---------|
+| `/nfts` | Score | Numeric string | `"13000000000000"` |
+| `/ops` | Score | Numeric string | `"13000000000000"` |
+| `/deployments` | Score | Numeric string | `"13000000000000"` |
+| `/history/{tick}/{id}` | Score | Numeric string | `"13000000000000"` |
+| `/owners/{tick}` | TokenId | Numeric string | `"51"` |
+| `/address/{address}/{tick}` | TokenId | Numeric string | `"51"` |
+| `/address/{address}` | TickTokenOffset | String `"TICK-tokenId"` | `"FOO-123"` |
+
+**⚠️ Critical**: The `/address/{address}` endpoint uses a string format `"TICK-tokenId"` (with hyphen), not a number!
+
+### Basic Example
+
+```javascript
+// Fetch all pages
+let offset = null;
+let allItems = [];
+
+while (true) {
+  const url = offset 
+    ? `/api/v1/krc721/mainnet/nfts?offset=${offset}`
+    : `/api/v1/krc721/mainnet/nfts`;
+  
+  const response = await fetch(url);
+  const data = await response.json();
+  
+  allItems.push(...(data.result || []));
+  
+  if (!data.next) break;  // No more pages
+  offset = data.next;      // Use next value as offset
+}
 ```
 
 ### Direction
 
-The direction of the record iteration can be specified in the query string using the `direction` parameter. The default direction is `forward`.
+- **`forward`** (default): Iterate from first to last record (chronological order)
+- **`backward`** or **`back`**: Iterate from last to first record (reverse chronological order)
 
-The following directions are supported:
-
-- `forward` - Iterate from the first record to the last.
-- `backward` (or `back`) - Iterate from the last record to the first.
-
-Specifying a `backward` direction will return records in reverse iteration order.
+Use `direction=backward` to get the latest items first without pagination.
 
 ### Limits
 
-The number of records to return can be specified in the query string using the `limit` parameter. The maximum (and the default) limit is `50`. Specifying a limit greater than `50` will be ignored returning maximum `50` records.
+- **Default**: 50 records per page
+- **Maximum**: 50 records (values greater than 50 are ignored)
+- **Minimum**: 1 record
+
+### Common Mistakes
+
+1. ❌ **Wrong**: Manually incrementing offset (`offset += 50`)
+   ✅ **Correct**: Use `next` value from response
+
+2. ❌ **Wrong**: Using numeric offset for `/address/{address}` endpoint
+   ✅ **Correct**: Use TickTokenOffset format `"TICK-tokenId"`
+
+3. ❌ **Wrong**: Not checking if `next` is null
+   ✅ **Correct**: Check `if (!data.next) break;`
+
+**For complete pagination documentation with examples in multiple languages, see [PAGINATION.md](./PAGINATION.md).**
 
 ## REST endpoints
 
@@ -94,6 +150,15 @@ Response:
 ```
 GET /api/v1/krc721/{network}/nfts
 ```
+
+**Query Parameters:**
+- `offset` (optional): Pagination offset (Score format - numeric string)
+- `limit` (optional): Number of records (1-50, default: 50)
+- `direction` (optional): `forward` (default) or `backward`
+
+**Pagination**: This endpoint uses Score-based pagination. See [PAGINATION.md](./PAGINATION.md) for details.
+
+**Field Reference**: See [FIELD_REFERENCE.md](./FIELD_REFERENCE.md) for field descriptions.
 
 Response:
 ```json
@@ -178,6 +243,13 @@ Response:
 GET /api/v1/krc721/{network}/owners/{tick}
 ```
 
+**Query Parameters:**
+- `offset` (optional): Pagination offset (TokenId format - numeric string)
+- `limit` (optional): Number of records (1-50, default: 50)
+- `direction` (optional): `forward` (default) or `backward`
+
+**Pagination**: This endpoint uses TokenId-based pagination. See [PAGINATION.md](./PAGINATION.md) for details.
+
 Response:
 ```json
 {
@@ -200,6 +272,15 @@ Response:
 ```
 GET /api/v1/krc721/{network}/address/{address}
 ```
+
+**Query Parameters:**
+- `offset` (optional): Pagination offset (**TickTokenOffset format** - string `"TICK-tokenId"`)
+- `limit` (optional): Number of records (1-50, default: 50)
+- `direction` (optional): `forward` (default) or `backward`
+
+**⚠️ CRITICAL**: This endpoint uses TickTokenOffset format (`"FOO-123"`), NOT a numeric offset!
+
+**Pagination**: See [PAGINATION.md](./PAGINATION.md) for complete details and examples.
 
 Response:
 ```json
@@ -254,6 +335,13 @@ Response:
 ```
 GET /api/v1/krc721/{network}/ops
 ```
+
+**Query Parameters:**
+- `offset` (optional): Pagination offset (Score format - numeric string)
+- `limit` (optional): Number of records (1-50, default: 50)
+- `direction` (optional): `forward` (default) or `backward`
+
+**Pagination**: This endpoint uses Score-based pagination. Use `direction=backward` to get latest operations first.
 
 Response:
 ```json
@@ -411,7 +499,14 @@ Response:
 GET /api/v1/krc721/{network}/history/{tick}/{id}
 ```
 
-Get ownership history of a token.
+Get ownership history of a token (all ownership changes).
+
+**Query Parameters:**
+- `offset` (optional): Pagination offset (Score format - numeric string)
+- `limit` (optional): Number of records (1-50, default: 50)
+- `direction` (optional): `forward` (default) or `backward`
+
+**Pagination**: This endpoint uses Score-based pagination.
 
 Response:
 ```json
