@@ -286,7 +286,6 @@ impl ConsumerT for Syncer {
     }
 }
 
-#[allow(clippy::result_large_err)]
 pub fn process_acceptance_data(
     added_chain_block_hashes: &[RpcHash],
     added_acceptance_data: &[RpcAcceptanceData],

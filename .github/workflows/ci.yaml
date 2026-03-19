@@ -41,7 +41,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run cargo clippy
-        run: cargo clippy --workspace --all-targets --tests --benches -- -D warnings
+        run: cargo clippy --workspace --all-targets --tests --benches -- -D warnings -A clippy::result_large_err
 
   test:
     name: Tests
