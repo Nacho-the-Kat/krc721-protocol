@@ -6,7 +6,7 @@ use crate::nft_view::{
 };
 use crate::{calculate_tx_score_from_blue, nft_view};
 use arc_swap::ArcSwapOption;
-use kaspa_txscript::pay_to_address_script;
+use kaspa_txscript::{extract_script_pub_key_address, pay_to_address_script};
 use krc721_core::model::krc721::model::*;
 use krc721_core::model::krc721::*;
 use krc721_core::network::Network;
@@ -126,6 +126,8 @@ impl DataT for Accessor {
             transfers,
             royalty_fees,
             security_fees,
+            listings,
+            sends,
         } = self.inner.db.stats.load(&tx).map_err(CoreError::custom)?;
 
         // Generate new status
@@ -165,6 +167,8 @@ impl DataT for Accessor {
                 token_deployments_total: deployments,
                 token_mints_total: mints,
                 token_transfers_total: transfers,
+                token_listings_total: listings,
+                token_sends_total: sends,
             });
 
             self.inner.last_status_snapshot.store(Some(status.clone()));
@@ -705,6 +709,148 @@ impl DataT for Accessor {
             .map_err(CoreError::custom)?;
         Ok(ranges)
     }
+
+    #[instrument(level = "error", skip(self), err)]
+    async fn krc721_active_listings(
+        &self,
+        args: TokenListLookupArgs,
+        iter_args: IteratorArgs<Score>,
+    ) -> CoreResult<Pagination<Vec<ListingMetaWrapper>, Score>> {
+        self.track_request();
+        let prefix = self.address_prefix();
+        let (offset, direction, limit) = resolve_u64_iter_args(iter_args);
+        let view = self.view().clone();
+        let split_last = spawn_blocking(move || {
+            view.krc721_active_listings(
+                args.tick,
+                IteratorArgsView {
+                    offset,
+                    direction,
+                    limit,
+                },
+            )
+        })
+        .in_current_span()
+        .await
+        .map_err(CoreError::custom)?
+        .map_err(CoreError::custom)?;
+
+        let paginated = to_paginated(split_last, limit, |last| last.op_score);
+        let data = paginated
+            .data
+            .into_iter()
+            .map(|entry| listing_entry_to_meta(entry, prefix))
+            .collect::<CoreResult<Vec<_>>>()?;
+        Ok(Pagination {
+            data,
+            next_page_offset: paginated.next_page_offset,
+        })
+    }
+
+    #[instrument(level = "error", skip(self), err)]
+    async fn krc721_listing_lookup(
+        &self,
+        args: TokenLookupArgs,
+    ) -> CoreResult<Option<ListingMetaWrapper>> {
+        self.track_request();
+        let prefix = self.address_prefix();
+        let view = self.view().clone();
+        let tick = args.tick;
+        let token_id = args.id;
+        let listing = spawn_blocking(move || view.krc721_listing_lookup(tick, token_id))
+            .in_current_span()
+            .await
+            .map_err(CoreError::custom)?
+            .map_err(CoreError::custom)?;
+        match listing {
+            None => Ok(None),
+            Some(lv) => Ok(Some(ListingMetaWrapper {
+                tick,
+                token_id,
+                price: lv.price,
+                seller: extract_script_pub_key_address(&lv.seller, prefix)
+                    .map_err(CoreError::custom)?,
+                listing_tx_id: lv.listing_tx_id,
+                redeem_script: faster_hex::hex_string(&lv.redeem_script),
+                op_score: lv.op_score,
+                metadata: None,
+            })),
+        }
+    }
+
+    #[instrument(level = "error", skip(self), err)]
+    async fn krc721_address_listings(
+        &self,
+        args: AddressListLookupArgs,
+        iter_args: IteratorArgs<TickTokenOffset>,
+    ) -> CoreResult<Pagination<Vec<ListingMetaWrapper>, TickTokenOffset>> {
+        self.track_request();
+        let prefix = self.address_prefix();
+        let address: Address = args.address.try_into().map_err(CoreError::custom)?;
+        let spk = pay_to_address_script(&address);
+        let direction = iter_args.direction.unwrap_or_default();
+        let limit = iter_args
+            .limit
+            .unwrap_or(MAX_ITERATOR_LIMIT)
+            .min(MAX_ITERATOR_LIMIT);
+        let offset = iter_args.offset.unwrap_or(match direction {
+            Direction::Forward => TickTokenOffset {
+                tick: Tick::MIN,
+                token_id: TokenId::MIN,
+            },
+            Direction::Backward => TickTokenOffset {
+                tick: Tick::MAX,
+                token_id: TokenId::MAX,
+            },
+        });
+
+        let view = self.view().clone();
+        let split_last = spawn_blocking(move || {
+            view.krc721_address_listings(
+                &spk,
+                IteratorArgsView {
+                    offset,
+                    direction,
+                    limit,
+                },
+            )
+        })
+        .in_current_span()
+        .await
+        .map_err(CoreError::custom)?
+        .map_err(CoreError::custom)?;
+
+        let paginated = to_paginated(split_last, limit, |last| TickTokenOffset {
+            tick: last.tick,
+            token_id: last.token_id,
+        });
+        let data = paginated
+            .data
+            .into_iter()
+            .map(|entry| listing_entry_to_meta(entry, prefix))
+            .collect::<CoreResult<Vec<_>>>()?;
+        Ok(Pagination {
+            data,
+            next_page_offset: paginated.next_page_offset,
+        })
+    }
+}
+
+fn listing_entry_to_meta(
+    entry: nft_view::ListingEntry,
+    prefix: Prefix,
+) -> CoreResult<ListingMetaWrapper> {
+    Ok(ListingMetaWrapper {
+        tick: entry.tick,
+        token_id: entry.token_id,
+        price: entry.price,
+        seller: extract_script_pub_key_address(&entry.seller, prefix)
+            .map_err(CoreError::custom)?,
+        listing_tx_id: entry.listing_tx_id,
+        redeem_script: faster_hex::hex_string(&entry.redeem_script),
+        op_score: entry.op_score,
+        metadata: None,
+    })
 }
 
 fn to_paginated<V, O>(
