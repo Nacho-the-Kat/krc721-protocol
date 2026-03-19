@@ -17,7 +17,7 @@ impl std::fmt::Display for Op {
             Op::Deploy => write!(f, "deploy"),
             Op::Mint => write!(f, "mint"),
             Op::Transfer => write!(f, "transfer"),
-            Op::Discount => write!(f, "transfer"),
+            Op::Discount => write!(f, "discount"),
         }
     }
 }
