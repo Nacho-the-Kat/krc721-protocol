@@ -6,7 +6,7 @@ jobs:
 
   lints:
     name: Lints
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -24,7 +24,7 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -42,7 +42,7 @@ jobs:
 
   test:
     name: Tests
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
