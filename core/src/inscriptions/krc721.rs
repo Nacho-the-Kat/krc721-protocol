@@ -35,12 +35,9 @@ pub fn compute_listing_p2sh(
     let protocol = PROTOCOL_KSPR_NAMESPACE.as_bytes().to_owned();
 
     // Build the full redeem script: <pubkey> OP_CHECKSIG OP_FALSE OP_IF <"kspr"> OP_0 <send_json> OP_ENDIF
-    let script_sig: Vec<u8> = super::redeem_pubkey(
-        &protocol,
-        redeem_script_payload.as_slice(),
-        seller_pubkey,
-    )
-    .expect("failed to build listing redeem script");
+    let script_sig: Vec<u8> =
+        super::redeem_pubkey(&protocol, redeem_script_payload.as_slice(), seller_pubkey)
+            .expect("failed to build listing redeem script");
 
     let redeem_lock_p2sh = pay_to_script_hash_script(&script_sig);
     let p2sh_addr = extract_script_pub_key_address(&redeem_lock_p2sh, prefix)

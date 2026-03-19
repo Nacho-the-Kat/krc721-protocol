@@ -495,16 +495,15 @@ impl Analyzer {
                     .ok_or(AnalyzerError::OpListMissingValue("price"))?;
 
                 // Compute the expected P2SH listing address from sender's pubkey
-                let sender_pubkey = sigtx.sender_pubkey_bytes().ok_or(
-                    AnalyzerError::OpListMissingValue("sender pubkey"),
-                )?;
-                let (_, redeem_script) =
-                    krc721_core::inscriptions::krc721::compute_listing_p2sh(
-                        &sender_pubkey,
-                        tick.as_str(),
-                        token_id,
-                        self.address_prefix,
-                    );
+                let sender_pubkey = sigtx
+                    .sender_pubkey_bytes()
+                    .ok_or(AnalyzerError::OpListMissingValue("sender pubkey"))?;
+                let (_, redeem_script) = krc721_core::inscriptions::krc721::compute_listing_p2sh(
+                    &sender_pubkey,
+                    tick.as_str(),
+                    token_id,
+                    self.address_prefix,
+                );
 
                 // Capture the P2SH UTXO address from output[0]
                 let utxo_address = sigtx
@@ -534,9 +533,12 @@ impl Analyzer {
                     .ok_or(AnalyzerError::OpSendMissingValue("token_id"))?;
 
                 // Payment amount from output[0] (goes to seller)
-                let payment_amount = sigtx
-                    .output_amt(0)
-                    .ok_or(AnalyzerError::OpSendMissingValue("output[0] payment amount"))?;
+                let payment_amount =
+                    sigtx
+                        .output_amt(0)
+                        .ok_or(AnalyzerError::OpSendMissingValue(
+                            "output[0] payment amount",
+                        ))?;
 
                 // Buyer address from output[1]
                 let buyer = sigtx
@@ -544,9 +546,12 @@ impl Analyzer {
                     .ok_or(AnalyzerError::OpSendMissingValue("output[1] buyer address"))?;
 
                 // The listing UTXO being spent (input[0].previous_outpoint.txid)
-                let listing_utxo_txid = sigtx
-                    .input_prev_txid(0)
-                    .ok_or(AnalyzerError::OpSendMissingValue("input[0] previous outpoint"))?;
+                let listing_utxo_txid =
+                    sigtx
+                        .input_prev_txid(0)
+                        .ok_or(AnalyzerError::OpSendMissingValue(
+                            "input[0] previous outpoint",
+                        ))?;
 
                 Ok(Some(Operation {
                     common: OperationCommon {
@@ -1363,15 +1368,7 @@ mod tests {
             inputs: Vec<TransactionInput>,
             outputs: Vec<TransactionOutput>,
         ) -> Self {
-            let tx = Transaction::new(
-                0,
-                inputs,
-                outputs,
-                0,
-                SubnetworkId::default(),
-                0,
-                vec![],
-            );
+            let tx = Transaction::new(0, inputs, outputs, 0, SubnetworkId::default(), 0, vec![]);
             Self {
                 transaction: tx,
                 signature_script,
@@ -1382,7 +1379,8 @@ mod tests {
     #[test]
     fn test_list_deserialization() {
         // Test that List inscription JSON deserializes correctly
-        let json = r#"{"p":"krc-721","op":"list","tick":"KASPA","tokenId":"42","price":"1500000000"}"#;
+        let json =
+            r#"{"p":"krc-721","op":"list","tick":"KASPA","tokenId":"42","price":"1500000000"}"#;
         let op: UserOperation = serde_json::from_str(json).unwrap();
         assert_eq!(op.op, Op::List);
         assert_eq!(op.token_id, Some(42));
@@ -1535,8 +1533,7 @@ mod tests {
 
     #[test]
     fn test_detect_send_missing_token_id() {
-        let send_op = UserOperation::try_new(Protocol::Krc721, Op::Send, "KASPA")
-            .unwrap();
+        let send_op = UserOperation::try_new(Protocol::Krc721, Op::Send, "KASPA").unwrap();
         // No token_id
 
         let script = create_test_inscription(send_op);

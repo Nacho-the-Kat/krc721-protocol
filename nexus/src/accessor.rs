@@ -844,8 +844,7 @@ fn listing_entry_to_meta(
         tick: entry.tick,
         token_id: entry.token_id,
         price: entry.price,
-        seller: extract_script_pub_key_address(&entry.seller, prefix)
-            .map_err(CoreError::custom)?,
+        seller: extract_script_pub_key_address(&entry.seller, prefix).map_err(CoreError::custom)?,
         listing_tx_id: entry.listing_tx_id,
         redeem_script: faster_hex::hex_string(&entry.redeem_script),
         op_score: entry.op_score,

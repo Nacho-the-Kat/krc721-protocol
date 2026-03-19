@@ -236,9 +236,7 @@ impl HttpServer {
         let data = self.data().clone();
         router = router.route(
             &format!("/api/v1/krc721/{network}/listings/{{tick}}/{{id}}"),
-            get(|UrlPath(path)| async move {
-                to_json(data.krc721_listing_lookup(path).await)
-            }),
+            get(|UrlPath(path)| async move { to_json(data.krc721_listing_lookup(path).await) }),
         );
 
         let data = self.data().clone();

@@ -412,9 +412,10 @@ impl Db {
         let listings = Partition::new(
             keyspace.open_partition(PARTITION_LISTINGS, PartitionCreateOptions::default())?,
         );
-        let listings_by_tick = Partition::new(
-            keyspace.open_partition(PARTITION_LISTINGS_BY_TICK, PartitionCreateOptions::default())?,
-        );
+        let listings_by_tick = Partition::new(keyspace.open_partition(
+            PARTITION_LISTINGS_BY_TICK,
+            PartitionCreateOptions::default(),
+        )?);
         let address_listings = Partition::new(keyspace.open_partition(
             PARTITION_ADDRESS_LISTINGS,
             PartitionCreateOptions::default(),

@@ -1252,7 +1252,9 @@ impl Processor {
             op_score: tx_score,
         };
 
-        self.db.listings.insert_wtx(wtx, listing_key, &listing_value)?;
+        self.db
+            .listings
+            .insert_wtx(wtx, listing_key, &listing_value)?;
 
         // Sorted marketplace index
         self.db.listings_by_tick.insert_wtx(

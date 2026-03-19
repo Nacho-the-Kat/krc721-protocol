@@ -769,14 +769,18 @@ impl DbView {
             return Ok(None);
         }
 
-        let processed_fn = |_rtx: &ReadTransaction,
-                            key: ListingByTickKey,
-                            _: ()| {
+        let processed_fn = |_rtx: &ReadTransaction, key: ListingByTickKey, _: ()| {
             // Look up the full listing data
             let listing = self
                 .db
                 .listings
-                .get_rtx(_rtx, &OwnershipKey { tick: key.tick, token_id: key.token_id })?
+                .get_rtx(
+                    _rtx,
+                    &OwnershipKey {
+                        tick: key.tick,
+                        token_id: key.token_id,
+                    },
+                )?
                 .ok_or(Error::custom("listing index inconsistency"))?;
             Ok(ListingEntry {
                 tick: key.tick,
@@ -795,19 +799,36 @@ impl DbView {
                 rtx,
                 self.db.listings_by_tick.range_rtx(
                     rtx,
-                    ListingByTickKey { tick, price: offset, token_id: 0 }
-                        ..=ListingByTickKey { tick, price: u64::MAX, token_id: u64::MAX },
+                    ListingByTickKey {
+                        tick,
+                        price: offset,
+                        token_id: 0,
+                    }..=ListingByTickKey {
+                        tick,
+                        price: u64::MAX,
+                        token_id: u64::MAX,
+                    },
                 ),
                 limit,
                 processed_fn,
             )?),
             Direction::Backward => Ok(self.process_iter(
                 rtx,
-                self.db.listings_by_tick.range_rtx(
-                    rtx,
-                    ListingByTickKey { tick, price: 0, token_id: 0 }
-                        ..=ListingByTickKey { tick, price: offset, token_id: u64::MAX },
-                ).rev(),
+                self.db
+                    .listings_by_tick
+                    .range_rtx(
+                        rtx,
+                        ListingByTickKey {
+                            tick,
+                            price: 0,
+                            token_id: 0,
+                        }..=ListingByTickKey {
+                            tick,
+                            price: offset,
+                            token_id: u64::MAX,
+                        },
+                    )
+                    .rev(),
                 limit,
                 processed_fn,
             )?),
@@ -816,13 +837,12 @@ impl DbView {
 
     /// Look up a single listing by tick and token_id
     #[instrument(level = "error", skip(self), err)]
-    pub fn krc721_listing_lookup(
-        &self,
-        tick: Tick,
-        token_id: u64,
-    ) -> Result<Option<ListingValue>> {
+    pub fn krc721_listing_lookup(&self, tick: Tick, token_id: u64) -> Result<Option<ListingValue>> {
         let rtx = self.db.read_tx();
-        Ok(self.db.listings.get_rtx(&rtx, &OwnershipKey { tick, token_id })?)
+        Ok(self
+            .db
+            .listings
+            .get_rtx(&rtx, &OwnershipKey { tick, token_id })?)
     }
 
     /// Get active listings for an address
@@ -838,13 +858,17 @@ impl DbView {
     ) -> Result<Option<(Vec<ListingEntry>, ListingEntry)>> {
         let rtx = &self.db.read_tx();
 
-        let processed_fn = |_rtx: &ReadTransaction,
-                            key: AddressHoldingKey,
-                            _score: u64| {
+        let processed_fn = |_rtx: &ReadTransaction, key: AddressHoldingKey, _score: u64| {
             let listing = self
                 .db
                 .listings
-                .get_rtx(_rtx, &OwnershipKey { tick: key.tick, token_id: key.token_id })?
+                .get_rtx(
+                    _rtx,
+                    &OwnershipKey {
+                        tick: key.tick,
+                        token_id: key.token_id,
+                    },
+                )?
                 .ok_or(Error::custom("listing index inconsistency"))?;
             Ok(ListingEntry {
                 tick: key.tick,
@@ -862,19 +886,36 @@ impl DbView {
                 rtx,
                 self.db.address_listings.range_rtx(
                     rtx,
-                    AddressHoldingKey { spk: spk.clone(), tick: offset.tick, token_id: offset.token_id }
-                        ..=AddressHoldingKey { spk: spk.clone(), tick: Tick::MAX, token_id: u64::MAX },
+                    AddressHoldingKey {
+                        spk: spk.clone(),
+                        tick: offset.tick,
+                        token_id: offset.token_id,
+                    }..=AddressHoldingKey {
+                        spk: spk.clone(),
+                        tick: Tick::MAX,
+                        token_id: u64::MAX,
+                    },
                 ),
                 limit,
                 processed_fn,
             )?),
             Direction::Backward => Ok(self.process_iter(
                 rtx,
-                self.db.address_listings.range_rtx(
-                    rtx,
-                    AddressHoldingKey { spk: spk.clone(), tick: Tick::MIN, token_id: 0 }
-                        ..=AddressHoldingKey { spk: spk.clone(), tick: offset.tick, token_id: offset.token_id },
-                ).rev(),
+                self.db
+                    .address_listings
+                    .range_rtx(
+                        rtx,
+                        AddressHoldingKey {
+                            spk: spk.clone(),
+                            tick: Tick::MIN,
+                            token_id: 0,
+                        }..=AddressHoldingKey {
+                            spk: spk.clone(),
+                            tick: offset.tick,
+                            token_id: offset.token_id,
+                        },
+                    )
+                    .rev(),
                 limit,
                 processed_fn,
             )?),
