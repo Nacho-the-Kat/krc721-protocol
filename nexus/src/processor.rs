@@ -300,7 +300,10 @@ impl Processor {
 
         self.remove_discounts(tx, tx_score_threshold)?;
 
-        // Step 5: Reconstruct token ownership state from remaining valid history
+        // Step 5: Remove listing entries invalidated by the reorganization
+        self.remove_affected_listings(tx, tx_score_threshold)?;
+
+        // Step 6: Reconstruct token ownership state from remaining valid history
         self.reconstruct_token_ownership(tx, tx_score_threshold, premint_from_removed)?;
 
         Ok(stat_diffs)
@@ -634,6 +637,58 @@ impl Processor {
         }
         Ok(premint_count)
     }
+    /// Remove listing entries created above the score threshold during a reorg.
+    /// Cleans up all 3 listing partitions: primary listings, price-sorted index, and seller index.
+    fn remove_affected_listings(
+        &self,
+        tx: &mut WriteTransaction,
+        score_threshold: u64,
+    ) -> krc721_database::result::Result<()> {
+        // Scan all listings and remove those with op_score >= threshold
+        let all_listings: Vec<_> = self
+            .db
+            .listings
+            .range_wtx(tx, ..)
+            .filter_map(|r| r.ok())
+            .filter(|(_, v)| v.op_score >= score_threshold)
+            .collect();
+
+        if !all_listings.is_empty() {
+            warn!(
+                "Removing {} listings above score threshold {}",
+                all_listings.len(),
+                score_threshold
+            );
+        }
+
+        for (key, listing) in &all_listings {
+            // Remove from primary partition
+            self.db.listings.remove_wtx(tx, key)?;
+
+            // Remove from price-sorted index
+            self.db.listings_by_tick.remove_wtx(
+                tx,
+                &ListingByTickKey {
+                    tick: key.tick,
+                    price: listing.price,
+                    token_id: key.token_id,
+                },
+            )?;
+
+            // Remove from seller's listings index
+            self.db.address_listings.remove_wtx(
+                tx,
+                &AddressHoldingKey {
+                    spk: listing.seller.clone(),
+                    tick: key.tick,
+                    token_id: key.token_id,
+                },
+            )?;
+        }
+
+        Ok(())
+    }
+
     /// Remove and reconstruct token ownership state for affected tokens.
     /// This involves:
     /// 1. Getting affected token operations
@@ -1200,11 +1255,18 @@ impl Processor {
         common: &OperationCommon,
         info: &ListingInfo,
     ) -> Result<Result<(), CtxValidationError>> {
+        use kaspa_txscript::pay_to_script_hash_script;
         use krc721_core::constants::MIN_LISTING_PRICE;
 
         // Validate price
         if info.price < MIN_LISTING_PRICE {
             return Ok(Err(CtxValidationError::InvalidListingPrice));
+        }
+
+        // Validate P2SH address matches the redeem script (Kasplex-style verification)
+        let expected_p2sh_spk = pay_to_script_hash_script(&info.redeem_script);
+        if expected_p2sh_spk != info.utxo_address {
+            return Ok(Err(CtxValidationError::InvalidListingP2sh));
         }
 
         // Validate tick exists

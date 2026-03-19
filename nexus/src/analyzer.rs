@@ -680,7 +680,9 @@ impl ITransaction for ContextTransaction {
             return None;
         }
         let pubkey_opcode = inner_opcodes[0].as_ref();
-        if pubkey_opcode.is_push_opcode() && pubkey_opcode.get_data().len() == 32 {
+        let pubkey_len = pubkey_opcode.get_data().len();
+        // Accept both 32-byte Schnorr and 33-byte ECDSA pubkeys
+        if pubkey_opcode.is_push_opcode() && (pubkey_len == 32 || pubkey_len == 33) {
             Some(pubkey_opcode.get_data().to_vec())
         } else {
             None
