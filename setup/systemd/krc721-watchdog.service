@@ -1,0 +1,6 @@
+[Unit]
+Description=KRC-721 watchdog (restart if embedded Kaspa wRPC port is missing)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/krc721-watchdog.sh
