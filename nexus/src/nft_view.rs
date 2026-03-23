@@ -5,7 +5,7 @@ use kaspa_consensus_core::tx::{ScriptPublicKey, TransactionId};
 use krc721_core::model::krc721::{
     AddressNftInfo, AvailableRange, AvailableRanges, CheckedOperation, Collection,
     CollectionLookupArgs, CollectionState, DeployInfoWithCommon, Direction, Score,
-    ScoredCheckedOperation, Tick, TickTokenOffset, TokenId, TokenLookupArgs,
+    ScoredCheckedOperation, Tick, TickTokenOffset, TokenId, TokenLookupArgs, TokenStatus,
 };
 use krc721_database::database::{
     AddressHoldingKey, CurrentOwnershipValue, Db, DeploymentKey, ListingByTickKey, ListingValue,
@@ -37,12 +37,20 @@ pub struct SpkLookupArgs {
 pub struct NftLookupEntry {
     pub token_id: u64,
     pub mod_tx_score: u64,
+    pub listing: Option<ListingValue>,
 }
 
 pub struct Ownership {
     pub token_id: u64,
     pub owner: ScriptPublicKey,
     pub mod_tx_score: u64,
+    pub listing: Option<ListingValue>,
+}
+
+pub struct TokenLookupEntry {
+    pub owner: ScriptPublicKey,
+    pub mod_tx_score: u64,
+    pub listing: Option<ListingValue>,
 }
 
 pub struct TokenHistoryRecord {
@@ -79,6 +87,27 @@ impl DbView {
         })
         .take(limit + 1)
         .collect_split_last_result()
+    }
+
+    fn token_listing(
+        &self,
+        rtx: &ReadTransaction,
+        tick: Tick,
+        token_id: u64,
+    ) -> Result<Option<ListingValue>, Error> {
+        self.db
+            .listings
+            .get_rtx(rtx, &OwnershipKey { tick, token_id })
+            .map_err(Error::from)
+    }
+
+    fn token_status(listing: Option<&ListingValue>) -> TokenStatus {
+        match listing {
+            Some(listing) => {
+                TokenStatus::listed(listing.listing_tx_id, listing.price, listing.op_score)
+            }
+            None => TokenStatus::unlisted(),
+        }
     }
 
     // ---------------------
@@ -223,7 +252,7 @@ impl DbView {
         &self,
         TokenLookupArgs { tick, id }: TokenLookupArgs,
         restricted_protocols: &[String],
-    ) -> Result<Option<CurrentOwnershipValue>> {
+    ) -> Result<Option<TokenLookupEntry>> {
         let rtx = self.db.read_tx();
         let v = self
             .db
@@ -238,7 +267,12 @@ impl DbView {
         if dinfo.info.has_incompatible_uri_prefix(restricted_protocols) {
             return Ok(None); // todo log
         }
-        Ok(Some(v))
+        let listing = self.token_listing(&rtx, tick, id)?;
+        Ok(Some(TokenLookupEntry {
+            owner: v.owner,
+            mod_tx_score: v.mod_tx_score,
+            listing,
+        }))
     }
 
     #[instrument(level = "error", skip(self), err)]
@@ -261,16 +295,18 @@ impl DbView {
         if dinfo.info.has_incompatible_uri_prefix(restricted_protocols) {
             return Ok(None); // todo log
         }
-        let processed_fn = |_rtx: &ReadTransaction,
+        let processed_fn = |rtx: &ReadTransaction,
                             OwnershipKey { token_id, .. }: OwnershipKey,
                             CurrentOwnershipValue {
                                 owner,
                                 mod_tx_score,
                             }: CurrentOwnershipValue| {
+            let listing = self.token_listing(rtx, tick, token_id)?;
             Ok(Ownership {
                 token_id,
                 owner,
                 mod_tx_score,
+                listing,
             })
         };
         match direction {
@@ -400,22 +436,26 @@ impl DbView {
                     mod_tx_score,
                 ) = r?;
                 if last_tick_info.info.common.tick == tick && !last_incompatible {
+                    let listing = self.token_listing(rtx, tick, token_id)?;
                     c.push(AddressNftInfo {
                         tick,
                         tick_metadata: Some(last_tick_info.info.info.metadata.clone()),
                         token_id,
                         op_score_modified: mod_tx_score,
+                        status: Self::token_status(listing.as_ref()),
                     })
                 } else if last_tick_info.info.common.tick != tick {
                     let depl = self.db.collection_registry.get_rtx(rtx, &tick)?.unwrap();
                     last_incompatible = depl.info.has_incompatible_uri_prefix(restricted_protocols);
                     *last_tick_info = depl;
                     if !last_incompatible {
+                        let listing = self.token_listing(rtx, tick, token_id)?;
                         c.push(AddressNftInfo {
                             tick,
                             tick_metadata: Some(last_tick_info.info.info.metadata.clone()),
                             token_id,
                             op_score_modified: mod_tx_score,
+                            status: Self::token_status(listing.as_ref()),
                         })
                     }
                 }
@@ -494,13 +534,15 @@ impl DbView {
             return Ok(None); // todo log
         }
 
-        let processed_fn = |_rtx: &ReadTransaction,
+        let processed_fn = |rtx: &ReadTransaction,
                             AddressHoldingKey { token_id, spk, .. }: AddressHoldingKey,
                             mod_tx_score: u64| {
             trace!("spk is {spk:?}");
+            let listing = self.token_listing(rtx, tick, token_id)?;
             Ok(NftLookupEntry {
                 token_id,
                 mod_tx_score,
+                listing,
             })
         };
         match direction {

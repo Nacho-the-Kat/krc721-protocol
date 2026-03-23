@@ -490,6 +490,49 @@ pub struct Owner {
     pub id: u64,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TokenListingState {
+    Unlisted,
+    Listed,
+}
+
+#[serde_as]
+#[derive(Debug, Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+pub struct TokenStatus {
+    pub state: TokenListingState,
+    #[serde(rename = "listingTxId")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub listing_tx_id: Option<TransactionId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    pub price: Option<u64>,
+    #[serde(rename = "opScore")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    pub op_score: Option<u64>,
+}
+
+impl TokenStatus {
+    pub fn unlisted() -> Self {
+        Self {
+            state: TokenListingState::Unlisted,
+            listing_tx_id: None,
+            price: None,
+            op_score: None,
+        }
+    }
+
+    pub fn listed(listing_tx_id: TransactionId, price: u64, op_score: u64) -> Self {
+        Self {
+            state: TokenListingState::Listed,
+            listing_tx_id: Some(listing_tx_id),
+            price: Some(price),
+            op_score: Some(op_score),
+        }
+    }
+}
+
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct Token {
@@ -501,6 +544,7 @@ pub struct Token {
     #[serde(rename = "opScoreMod")]
     #[serde_as(as = "DisplayFromStr")]
     pub op_score_modified: u64,
+    pub status: TokenStatus,
 }
 
 #[serde_as]
@@ -516,6 +560,7 @@ pub struct AddressNftInfo {
     #[serde_as(as = "DisplayFromStr")]
     #[serde(rename = "opScoreMod")]
     pub op_score_modified: u64,
+    pub status: TokenStatus,
 }
 
 #[serde_as]
@@ -681,6 +726,7 @@ impl AddressNftInfo {
             tick_metadata: Default::default(),
             token_id: 1,
             op_score_modified: 2,
+            status: TokenStatus::unlisted(),
         }
     }
 }
@@ -817,6 +863,7 @@ mod tests {
             // tick_metadata: Metadata::Remote("ipfs:://...".to_string()),
             token_id: 45,
             op_score_modified: 36,
+            status: TokenStatus::unlisted(),
         }];
 
         let a = serde_json::to_string_pretty(&a).unwrap();
