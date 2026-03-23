@@ -504,9 +504,6 @@ pub struct TokenStatus {
     #[serde(rename = "listingTxId")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub listing_tx_id: Option<TransactionId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    pub price: Option<u64>,
     #[serde(rename = "opScore")]
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde_as(as = "Option<DisplayFromStr>")]
@@ -518,16 +515,14 @@ impl TokenStatus {
         Self {
             state: TokenListingState::Unlisted,
             listing_tx_id: None,
-            price: None,
             op_score: None,
         }
     }
 
-    pub fn listed(listing_tx_id: TransactionId, price: u64, op_score: u64) -> Self {
+    pub fn listed(listing_tx_id: TransactionId, op_score: u64) -> Self {
         Self {
             state: TokenListingState::Listed,
             listing_tx_id: Some(listing_tx_id),
-            price: Some(price),
             op_score: Some(op_score),
         }
     }

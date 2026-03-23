@@ -172,7 +172,6 @@ Response:
         "status": {
             "state": "listed",
             "listingTxId": "0000000000000000000000000000000000000000000000000000000000000001",
-            "price": "100000000",
             "opScore": "789"
         },
         "buri": "ipfs://..."
@@ -180,7 +179,7 @@ Response:
 }
 ```
 
-`status.state` is `unlisted` by default. When the NFT is listed, the response also includes the listing transaction id, current asking price in sompi, and the listing operation score.
+`status.state` is `unlisted` by default. When the NFT is listed, the response also includes the listing transaction id and the listing operation score.
 
 #### Get Token Owners
 ```
@@ -234,7 +233,6 @@ Response:
             "status": {
                 "state": "listed",
                 "listingTxId": "0000000000000000000000000000000000000000000000000000000000000002",
-                "price": "250000000",
                 "opScore": "80000001"
             },
             "buri": "ipfs://..."

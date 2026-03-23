@@ -19,9 +19,7 @@ const MAX_ITERATOR_LIMIT: usize = 50;
 
 fn token_status(listing: Option<&krc721_database::database::ListingValue>) -> TokenStatus {
     match listing {
-        Some(listing) => {
-            TokenStatus::listed(listing.listing_tx_id, listing.price, listing.op_score)
-        }
+        Some(listing) => TokenStatus::listed(listing.listing_tx_id, listing.op_score),
         None => TokenStatus::unlisted(),
     }
 }
