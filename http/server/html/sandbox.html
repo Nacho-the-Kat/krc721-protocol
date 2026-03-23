@@ -119,9 +119,9 @@
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
         }
 
         .endpoint-section:hover {
@@ -129,13 +129,54 @@
             box-shadow: var(--shadow-md);
         }
 
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 24px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .endpoint-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
         .endpoint-title {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
             color: var(--accent-primary);
-            margin-bottom: 20px;
             word-break: break-all;
+        }
+
+        .endpoint-description {
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
+
+        .endpoint-toggle {
+            font-size: 18px;
+            color: var(--text-tertiary);
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+            margin-left: 16px;
+        }
+
+        .endpoint-section.open .endpoint-toggle {
+            transform: rotate(180deg);
+        }
+
+        .endpoint-body {
+            display: none;
+            padding: 0 24px 24px;
+        }
+
+        .endpoint-section.open .endpoint-body {
+            display: block;
         }
 
         .endpoint-controls {
@@ -212,13 +253,13 @@
             transform: translateY(0);
         }
 
-        .next-page-btn {
+        .next-page-btn, .copy-url-btn {
             background: var(--bg-secondary);
             color: var(--accent-primary);
             border: 1px solid var(--accent-primary);
         }
 
-        .next-page-btn:hover {
+        .next-page-btn:hover, .copy-url-btn:hover {
             background: rgba(29, 234, 197, 0.1);
         }
 
@@ -228,6 +269,18 @@
             transform: none;
         }
 
+        .copy-url-btn {
+            padding: 10px 16px;
+            font-size: 13px;
+        }
+
+        .url-preview-row {
+            display: flex;
+            gap: 8px;
+            align-items: stretch;
+            margin-bottom: 16px;
+        }
+
         .url-preview {
             font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
@@ -235,9 +288,9 @@
             background: var(--bg-secondary);
             padding: 12px;
             border-radius: 8px;
-            margin-bottom: 16px;
             word-break: break-all;
             border: 1px solid var(--border-color);
+            flex: 1;
         }
 
         .json-response {
@@ -258,6 +311,12 @@
 
         .json-response.show {
             display: block;
+        }
+
+        .response-meta {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 8px;
         }
 
         .pagination-info {
@@ -283,25 +342,11 @@
         }
 
         /* JSON Syntax Highlighting */
-        .json-response .number {
-            color: var(--success);
-        }
-
-        .json-response .key {
-            color: var(--accent-primary);
-        }
-
-        .json-response .string {
-            color: #fbbf24;
-        }
-
-        .json-response .boolean {
-            color: #f472b6;
-        }
-
-        .json-response .null {
-            color: var(--text-tertiary);
-        }
+        .json-response .number { color: var(--success); }
+        .json-response .key { color: var(--accent-primary); }
+        .json-response .string { color: #fbbf24; }
+        .json-response .boolean { color: #f472b6; }
+        .json-response .null { color: var(--text-tertiary); }
 
         .error-message {
             color: var(--error);
@@ -310,26 +355,12 @@
 
         /* Responsive */
         @media (max-width: 768px) {
-            .content {
-                padding: 24px 16px;
-            }
-
-            .header-title {
-                font-size: 32px;
-            }
-
-            .endpoint-controls {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .input-group {
-                min-width: 100%;
-            }
-
-            button {
-                width: 100%;
-            }
+            .content { padding: 24px 16px; }
+            .header-title { font-size: 32px; }
+            .endpoint-controls { flex-direction: column; align-items: stretch; }
+            .input-group { min-width: 100%; }
+            button { width: 100%; }
+            .url-preview-row { flex-direction: column; }
         }
     </style>
 </head>
@@ -339,7 +370,7 @@
             <h1 class="header-title">API Sandbox</h1>
             <nav class="header-nav">
                 <a href="/" class="nav-link">Home</a>
-                <span style="color: var(--text-tertiary);">•</span>
+                <span style="color: var(--text-tertiary);">&bull;</span>
                 <a href="/docs" target="_blank" class="nav-link">Documentation</a>
             </nav>
         </div>
@@ -359,7 +390,7 @@
             "/api/v1/krc721/{{network}}/royalties/:address/:tick",
             "/api/v1/krc721/{{network}}/deployments",
             "/api/v1/krc721/{{network}}/ops",
-            "/api/v1/krc721/{{network}}/ops/score/:id",
+            "/api/v1/krc721/{{network}}/ops/score/:score",
             "/api/v1/krc721/{{network}}/ops/txid/:txid",
             "/api/v1/krc721/{{network}}/rejections/txid/:txid",
             "/api/v1/krc721/{{network}}/reserved",
@@ -367,7 +398,45 @@
             "/api/v1/krc721/{{network}}/ranges/:tick",
         ];
 
-        const paginatedEndpoints = ["nfts", "owners/:tick", ":address", ":address/:tick", "ops", "deployments", "history/:tick/:id"];
+        const paginatedEndpoints = ["nfts", "owners/:tick", ":address", "address/:address/:tick", "ops", "deployments", "history/:tick/:id"];
+
+        const endpointDescriptions = {
+            '/status': 'Indexer health, sync status, network statistics, and cumulative fee totals',
+            '/nfts': 'All deployed NFT collections, paginated by operation score',
+            '/nfts/:tick': 'Full details for a single collection',
+            '/nfts/:tick/:id': 'Token details including current owner',
+            '/owners/:tick': 'All token owners in a collection, paginated by token ID',
+            '/address/:address': 'All NFTs owned by an address across all collections, paginated by tick-tokenId',
+            '/address/:address/:tick': 'NFTs owned by an address in a specific collection, paginated by token ID',
+            '/royalties/:address/:tick': 'Royalty fee (in SOMPI) that an address must pay to mint from a collection',
+            '/deployments': 'All deployment operations, paginated by operation score',
+            '/ops': 'All operations (deploy, mint, transfer, discount), paginated by operation score',
+            '/ops/score/:score': 'Single operation looked up by its unique operation score',
+            '/ops/txid/:txid': 'Single operation looked up by transaction ID',
+            '/rejections/txid/:txid': 'Rejection reason for a failed operation, looked up by transaction ID',
+            '/reserved': 'List of reserved ticker names that cannot be deployed',
+            '/history/:tick/:id': 'Ownership history of a specific token, paginated by operation score',
+            '/ranges/:tick': 'Available token ID ranges for minting (empty string when fully minted)',
+        };
+
+        const paramPlaceholders = {
+            tick: 'e.g. NACHO',
+            address: 'e.g. kaspa:qplfvwnt6...',
+            id: 'e.g. 1',
+            txid: 'e.g. 145e07ae3278f3d6...',
+            score: 'e.g. 24907687056003',
+        };
+
+        function getEndpointSuffix(url) {
+            const base = '/api/v1/krc721/{{network}}/';
+            const idx = url.indexOf(base);
+            return idx >= 0 ? url.substring(idx + base.length) : url;
+        }
+
+        function getDescription(url) {
+            const suffix = getEndpointSuffix(url);
+            return endpointDescriptions['/' + suffix] || '';
+        }
 
         function getOffsetType(url) {
             if (url.includes('/address/') && !url.includes('/address/:address/:tick')) {
@@ -379,19 +448,60 @@
             }
         }
 
+        function buildExampleOptions(offsetType) {
+            let html = '<option value="">Select example...</option>';
+            html += '<option value="limit=10">First 10 items</option>';
+            html += '<option value="limit=10&direction=backward">Latest 10 items</option>';
+
+            if (offsetType === 'score') {
+                html += '<option value="offset=24907847264002&limit=10">Page from score 24907847264002</option>';
+            } else if (offsetType === 'tokenid') {
+                html += '<option value="offset=51&limit=10">Page from token #51</option>';
+            } else if (offsetType === 'ticktoken') {
+                html += '<option value="offset=NACHO-10&limit=10">Page from NACHO-10</option>';
+            }
+            return html;
+        }
+
         function createEndpointSection(url) {
             const isPaginated = paginatedEndpoints.some(suffix => url.endsWith(suffix));
             const section = document.createElement('div');
             section.className = 'endpoint-section';
 
             const params = url.match(/:[a-zA-Z]+/g) || [];
-            const previewId = `preview-${Math.random().toString(36).substr(2, 9)}`;
+            const previewId = `preview-${Math.random().toString(36).substring(2, 11)}`;
 
-            // Endpoint title
+            // Collapsible header
+            const header = document.createElement('div');
+            header.className = 'endpoint-header';
+            header.onclick = () => section.classList.toggle('open');
+
+            const headerLeft = document.createElement('div');
+            headerLeft.className = 'endpoint-header-left';
+
             const title = document.createElement('div');
             title.className = 'endpoint-title';
             title.textContent = url;
-            section.appendChild(title);
+            headerLeft.appendChild(title);
+
+            const desc = getDescription(url);
+            if (desc) {
+                const descEl = document.createElement('div');
+                descEl.className = 'endpoint-description';
+                descEl.textContent = desc;
+                headerLeft.appendChild(descEl);
+            }
+
+            header.appendChild(headerLeft);
+            const toggle = document.createElement('span');
+            toggle.className = 'endpoint-toggle';
+            toggle.textContent = '\u25BC';
+            header.appendChild(toggle);
+            section.appendChild(header);
+
+            // Collapsible body
+            const body = document.createElement('div');
+            body.className = 'endpoint-body';
 
             // Controls container
             const controls = document.createElement('div');
@@ -399,16 +509,17 @@
 
             // Path parameters
             params.forEach((param, index) => {
+                const paramName = param.substring(1);
                 const group = document.createElement('div');
                 group.className = 'input-group';
                 const label = document.createElement('label');
                 label.className = 'input-label';
-                label.textContent = param.substring(1);
+                label.textContent = paramName;
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.placeholder = `Enter ${param.substring(1)}`;
+                input.placeholder = paramPlaceholders[paramName] || `Enter ${paramName}`;
                 input.id = `${previewId}-input-${index}`;
-                input.oninput = () => updatePreview(previewId, url, section);
+                input.oninput = () => updatePreview(previewId, url, body);
                 input.onkeypress = (e) => { if (e.key === 'Enter') fetchJson(previewId); };
                 group.appendChild(label);
                 group.appendChild(input);
@@ -418,8 +529,7 @@
             // Pagination controls
             if (isPaginated) {
                 const offsetType = getOffsetType(url);
-                
-                // Example queries dropdown
+
                 const exampleGroup = document.createElement('div');
                 exampleGroup.className = 'input-group';
                 const exampleLabel = document.createElement('label');
@@ -428,21 +538,12 @@
                 const exampleSelect = document.createElement('select');
                 exampleSelect.className = 'example-select';
                 exampleSelect.id = `${previewId}-examples`;
-                exampleSelect.innerHTML = `
-                    <option value="">Select example...</option>
-                    <option value="limit=10">First 10 items</option>
-                    <option value="limit=10&direction=backward">Latest 10 items</option>
-                    <option value="limit=20&direction=forward">First 20 items</option>
-                    ${offsetType === 'score' ? '<option value="offset=13000000000000&limit=10">Next page (Score)</option>' : ''}
-                    ${offsetType === 'tokenid' ? '<option value="offset=51&limit=10">Next page (TokenId)</option>' : ''}
-                    ${offsetType === 'ticktoken' ? '<option value="offset=FOO-123&limit=10">Next page (Tick-TokenId)</option>' : ''}
-                `;
-                exampleSelect.onchange = () => applyExample(previewId, exampleSelect.value, url, section);
+                exampleSelect.innerHTML = buildExampleOptions(offsetType);
+                exampleSelect.onchange = () => applyExample(previewId, exampleSelect.value, url, body);
                 exampleGroup.appendChild(exampleLabel);
                 exampleGroup.appendChild(exampleSelect);
                 controls.appendChild(exampleGroup);
 
-                // Pagination inputs
                 const offsetGroup = document.createElement('div');
                 offsetGroup.className = 'input-group';
                 const offsetLabel = document.createElement('label');
@@ -452,7 +553,7 @@
                 offsetInput.type = 'text';
                 offsetInput.placeholder = 'Optional';
                 offsetInput.id = `${previewId}-offset`;
-                offsetInput.oninput = () => updatePreview(previewId, url, section);
+                offsetInput.oninput = () => updatePreview(previewId, url, body);
                 offsetInput.onkeypress = (e) => { if (e.key === 'Enter') fetchJson(previewId); };
                 offsetGroup.appendChild(offsetLabel);
                 offsetGroup.appendChild(offsetInput);
@@ -468,7 +569,7 @@
                 limitInput.placeholder = '50';
                 limitInput.value = '50';
                 limitInput.id = `${previewId}-limit`;
-                limitInput.oninput = () => updatePreview(previewId, url, section);
+                limitInput.oninput = () => updatePreview(previewId, url, body);
                 limitInput.onkeypress = (e) => { if (e.key === 'Enter') fetchJson(previewId); };
                 limitGroup.appendChild(limitLabel);
                 limitGroup.appendChild(limitInput);
@@ -483,30 +584,47 @@
                 directionInput.type = 'text';
                 directionInput.placeholder = 'forward/backward';
                 directionInput.id = `${previewId}-direction`;
-                directionInput.oninput = () => updatePreview(previewId, url, section);
+                directionInput.oninput = () => updatePreview(previewId, url, body);
                 directionInput.onkeypress = (e) => { if (e.key === 'Enter') fetchJson(previewId); };
                 directionGroup.appendChild(directionLabel);
                 directionGroup.appendChild(directionInput);
                 controls.appendChild(directionGroup);
             }
 
-            section.appendChild(controls);
+            body.appendChild(controls);
 
-            // URL preview
+            // URL preview row (preview + copy button)
+            const previewRow = document.createElement('div');
+            previewRow.className = 'url-preview-row';
+
             const preview = document.createElement('div');
             preview.id = previewId;
             preview.className = 'url-preview';
             preview.textContent = url;
+
+            previewRow.appendChild(preview);
+
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-url-btn';
+            copyBtn.textContent = 'Copy';
+            copyBtn.onclick = (e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(preview.textContent).then(() => {
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+                });
+            };
+            previewRow.appendChild(copyBtn);
+
             if (params.length === 0 && !isPaginated) {
-                preview.style.display = 'none';
+                previewRow.style.display = 'none';
             }
-            section.appendChild(preview);
+            body.appendChild(previewRow);
 
             // Action buttons
             const buttonContainer = document.createElement('div');
             buttonContainer.style.display = 'flex';
             buttonContainer.style.gap = '12px';
-            buttonContainer.style.marginTop = '16px';
 
             const goButton = document.createElement('button');
             goButton.textContent = 'Fetch';
@@ -519,45 +637,53 @@
                 nextButton.className = 'next-page-btn';
                 nextButton.id = `${previewId}-next-btn`;
                 nextButton.style.display = 'none';
-                nextButton.onclick = () => fetchNextPage(previewId, url, section);
+                nextButton.onclick = () => fetchNextPage(previewId, url, body);
                 buttonContainer.appendChild(nextButton);
             }
 
-            section.appendChild(buttonContainer);
+            body.appendChild(buttonContainer);
 
             // Response area
             const responseArea = document.createElement('div');
             responseArea.id = `${previewId}-response`;
             responseArea.className = 'json-response';
-            section.appendChild(responseArea);
+            body.appendChild(responseArea);
+
+            // Response meta (timing)
+            const responseMeta = document.createElement('div');
+            responseMeta.id = `${previewId}-meta`;
+            responseMeta.className = 'response-meta';
+            body.appendChild(responseMeta);
 
             // Pagination info
             if (isPaginated) {
                 const paginationInfo = document.createElement('div');
                 paginationInfo.id = `${previewId}-pagination-info`;
                 paginationInfo.className = 'pagination-info';
-                section.appendChild(paginationInfo);
+                body.appendChild(paginationInfo);
+            }
+
+            section.appendChild(body);
+
+            // Initialize URL preview with default pagination values
+            if (isPaginated) {
+                updatePreview(previewId, url, body);
             }
 
             return section;
         }
 
-        function updatePreview(previewId, template, section) {
+        function updatePreview(previewId, template, container) {
             const preview = document.getElementById(previewId);
             if (!preview) return;
             
             let url = template;
-            
-            // Update path parameters (non-pagination inputs)
-            const inputs = Array.from(section.getElementsByTagName('input'));
+            const inputs = Array.from(container.getElementsByTagName('input'));
             
             inputs.forEach(input => {
-                // Skip pagination inputs
                 if (input.id.includes('-offset') || input.id.includes('-limit') || input.id.includes('-direction')) {
                     return;
                 }
-                
-                // Get parameter name from label
                 const label = input.previousElementSibling;
                 if (label && label.className === 'input-label') {
                     const param = label.textContent.trim();
@@ -567,7 +693,6 @@
                 }
             });
             
-            // Build query string from pagination inputs
             const queryParams = [];
             const offsetInput = document.getElementById(`${previewId}-offset`);
             const limitInput = document.getElementById(`${previewId}-limit`);
@@ -590,22 +715,18 @@
             preview.textContent = url;
         }
 
-        function applyExample(previewId, example, template, section) {
+        function applyExample(previewId, example, template, container) {
             if (!example) {
-                // Clear all pagination fields when "Select example..." is chosen
                 const offsetInput = document.getElementById(`${previewId}-offset`);
                 const limitInput = document.getElementById(`${previewId}-limit`);
                 const directionInput = document.getElementById(`${previewId}-direction`);
-                
                 if (offsetInput) offsetInput.value = '';
-                if (limitInput) limitInput.value = '50'; // Reset to default
+                if (limitInput) limitInput.value = '50';
                 if (directionInput) directionInput.value = '';
-                
-                updatePreview(previewId, template, section);
+                updatePreview(previewId, template, container);
                 return;
             }
             
-            // Parse example parameters
             const params = example.split('&');
             const exampleParams = {};
             params.forEach(param => {
@@ -615,50 +736,47 @@
                 }
             });
             
-            // Update pagination fields - set values from example or clear if not present
             const offsetInput = document.getElementById(`${previewId}-offset`);
             const limitInput = document.getElementById(`${previewId}-limit`);
             const directionInput = document.getElementById(`${previewId}-direction`);
             
-            if (offsetInput) {
-                offsetInput.value = exampleParams.offset || '';
-            }
-            if (limitInput) {
-                limitInput.value = exampleParams.limit || '50';
-            }
-            if (directionInput) {
-                directionInput.value = exampleParams.direction || '';
-            }
+            if (offsetInput) offsetInput.value = exampleParams.offset || '';
+            if (limitInput) limitInput.value = exampleParams.limit || '50';
+            if (directionInput) directionInput.value = exampleParams.direction || '';
             
-            // Update preview after setting all values
-            updatePreview(previewId, template, section);
+            updatePreview(previewId, template, container);
         }
 
         async function fetchJson(previewId) {
             const preview = document.getElementById(previewId);
             const url = preview.textContent;
             const responseArea = document.getElementById(`${previewId}-response`);
+            const responseMeta = document.getElementById(`${previewId}-meta`);
             const paginationInfo = document.getElementById(`${previewId}-pagination-info`);
             const nextPageBtn = document.getElementById(`${previewId}-next-btn`);
 
             responseArea.className = 'json-response show';
             responseArea.textContent = 'Loading...';
-            
+            if (responseMeta) responseMeta.textContent = '';
             if (paginationInfo) paginationInfo.className = 'pagination-info';
             if (nextPageBtn) nextPageBtn.style.display = 'none';
 
-            if (url.includes(":")) {
+            if (url.replace(/kaspatest:|kaspa:/, '').includes(":")) {
                 responseArea.innerHTML = '<span class="error-message">Please fill in all required parameters</span>';
                 return;
             }
 
+            const t0 = performance.now();
+
             try {
                 const response = await fetch(url);
+                const elapsed = Math.round(performance.now() - t0);
                 const contentType = response.headers.get('content-type');
                 
                 if (!contentType || !contentType.includes('application/json')) {
                     const text = await response.text();
                     responseArea.innerHTML = `<span class="error-message">HTTP ${response.status}: ${text}</span>`;
+                    if (responseMeta) responseMeta.textContent = `${elapsed}ms`;
                     return;
                 }
                 
@@ -669,43 +787,44 @@
                     } catch (e) {
                         responseArea.innerHTML = `<span class="error-message">Error ${response.status}: ${response.statusText}</span>`;
                     }
+                    if (responseMeta) responseMeta.textContent = `${elapsed}ms`;
                     return;
                 }
                 
                 const data = await response.json();
                 responseArea.innerHTML = stringify(data);
+                if (responseMeta) responseMeta.textContent = `${elapsed}ms`;
                 
-                if (paginationInfo && data.hasOwnProperty('next')) {
+                if (paginationInfo) {
                     const resultCount = Array.isArray(data.result) ? data.result.length : (data.result ? 1 : 0);
-                    const hasNext = data.next !== null && data.next !== undefined;
-                    
-                    let infoHtml = `<strong>Pagination:</strong> ${resultCount} items`;
-                    if (hasNext) {
-                        infoHtml += ` • Next: <code>${data.next}</code>`;
+                    if (data.next != null) {
+                        let infoHtml = `<strong>Pagination:</strong> ${resultCount} items &bull; Next: <code>${data.next}</code>`;
                         if (nextPageBtn) {
                             nextPageBtn.style.display = 'inline-block';
                             nextPageBtn.dataset.nextOffset = data.next;
                         }
+                        paginationInfo.innerHTML = infoHtml;
+                        paginationInfo.className = 'pagination-info show';
                     } else {
-                        infoHtml += ` • Last page`;
+                        paginationInfo.innerHTML = `<strong>Pagination:</strong> ${resultCount} items &bull; Last page`;
+                        paginationInfo.className = 'pagination-info show';
                     }
-                    
-                    paginationInfo.innerHTML = infoHtml;
-                    paginationInfo.className = 'pagination-info show';
                 }
             } catch (error) {
+                const elapsed = Math.round(performance.now() - t0);
                 responseArea.innerHTML = `<span class="error-message">Error: ${error.message}</span>`;
+                if (responseMeta) responseMeta.textContent = `${elapsed}ms`;
             }
         }
 
-        function fetchNextPage(previewId, template, section) {
+        function fetchNextPage(previewId, template, container) {
             const nextPageBtn = document.getElementById(`${previewId}-next-btn`);
             const offsetInput = document.getElementById(`${previewId}-offset`);
             
             if (nextPageBtn && nextPageBtn.dataset.nextOffset) {
                 if (offsetInput) {
                     offsetInput.value = nextPageBtn.dataset.nextOffset;
-                    updatePreview(previewId, template, section);
+                    updatePreview(previewId, template, container);
                 }
                 fetchJson(previewId);
             }

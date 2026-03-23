@@ -36,6 +36,7 @@ struct HttpServerInner {
     index_html: String,
     sandbox_html: String,
     doc_html: String,
+    skill_md: String,
     // http_folder: PathBuf,
     generator: Option<Arc<Generator>>,
 }
@@ -65,6 +66,7 @@ impl HttpServer {
             .to_string();
 
         let doc_html = generate_docs();
+        let skill_md = include_str!("../../../doc/SKILL.md").to_string();
 
         Self {
             inner: Arc::new(HttpServerInner {
@@ -77,6 +79,7 @@ impl HttpServer {
                 index_html,
                 sandbox_html: test_html,
                 doc_html,
+                skill_md,
                 generator,
             }),
         }
@@ -104,6 +107,18 @@ impl HttpServer {
         router = router.route(
             "/docs",
             get(|| async move { Html(this.inner.doc_html.clone()) }),
+        );
+
+        let this = self.clone();
+        router = router.route(
+            "/skill.md",
+            get(|| async move {
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
+                    .body(Body::from(this.inner.skill_md.clone()))
+                    .unwrap()
+            }),
         );
 
         let data = self.data().clone();
@@ -463,6 +478,9 @@ fn generate_docs() -> String {
     let overview_md = include_str!("../../../doc/OVERVIEW.md").to_string();
     let rust_md = include_str!("../../../doc/examples/RUST.md").to_string();
     let ts_md = include_str!("../../../doc/examples/TS.md").to_string();
+    let pagination_md = include_str!("../../../doc/PAGINATION.md").to_string();
+    let field_reference_md = include_str!("../../../doc/FIELD_REFERENCE.md").to_string();
+    let error_handling_md = include_str!("../../../doc/ERROR_HANDLING.md").to_string();
 
     let doc_html = include_str!("../html/docs.html").to_string();
 
@@ -475,6 +493,9 @@ fn generate_docs() -> String {
     let overview_html = markdown_to_html_with_plugins(&overview_md, &options, &plugins);
     let rust_html = markdown_to_html_with_plugins(&rust_md, &options, &plugins);
     let ts_html = markdown_to_html_with_plugins(&ts_md, &options, &plugins);
+    let pagination_html = markdown_to_html_with_plugins(&pagination_md, &options, &plugins);
+    let field_reference_html = markdown_to_html_with_plugins(&field_reference_md, &options, &plugins);
+    let error_handling_html = markdown_to_html_with_plugins(&error_handling_md, &options, &plugins);
 
     doc_html
         .replace("{krc721_html}", &krc721_html)
@@ -482,6 +503,9 @@ fn generate_docs() -> String {
         .replace("{overview_html}", &overview_html)
         .replace("{rust_html}", &rust_html)
         .replace("{ts_html}", &ts_html)
+        .replace("{pagination_html}", &pagination_html)
+        .replace("{field_reference_html}", &field_reference_html)
+        .replace("{error_handling_html}", &error_handling_html)
         .replace("<a ", "<a target=\"_blank\" ")
 }
 
