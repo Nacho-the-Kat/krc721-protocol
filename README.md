@@ -7,6 +7,7 @@ This is an archive repository created for public access.
 - NFT Collection deployments with pre-minting
 - NFT minting
 - NFT transfers
+- NFT marketplace list/send flow
 - Minimum PoW fees for indexer operations 
 - Custom-definable royalty fees for content creators (collected during mints)
 - Unlimited mints
@@ -14,6 +15,19 @@ This is an archive repository created for public access.
 - Fully compatible with Testnet-11 (10+ BPS)
 - High-availability load-balancing (cluster mode operation)
 
+## KRC-721 Standard Specifications
+
+The protocol specification lives in [`doc/KRC-721.md`](doc/KRC-721.md).
+
+This includes the marketplace operation definitions for:
+- `list`
+- `send`
+
+The spec documents:
+- inscription JSON format
+- transaction layout conventions
+- `listingTxId` derivation
+- settlement validation rules for `input[0]`, `output[0]`, and `output[1]`
 
 ## Installation
 
