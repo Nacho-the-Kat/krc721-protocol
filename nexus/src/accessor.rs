@@ -773,7 +773,6 @@ impl DataT for Accessor {
             Some(lv) => Ok(Some(ListingMetaWrapper {
                 tick,
                 token_id,
-                price: lv.price,
                 seller: extract_script_pub_key_address(&lv.seller, prefix)
                     .map_err(CoreError::custom)?,
                 listing_tx_id: lv.listing_tx_id,
@@ -849,7 +848,6 @@ fn listing_entry_to_meta(
     Ok(ListingMetaWrapper {
         tick: entry.tick,
         token_id: entry.token_id,
-        price: entry.price,
         seller: extract_script_pub_key_address(&entry.seller, prefix).map_err(CoreError::custom)?,
         listing_tx_id: entry.listing_tx_id,
         redeem_script: faster_hex::hex_string(&entry.redeem_script),

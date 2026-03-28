@@ -279,7 +279,7 @@ pub struct Db {
 
     /// Active NFT marketplace listings. Key: {tick}:{token_id}
     pub listings: ListingsPartition,
-    /// Listings sorted by price per collection. Key: {tick}:{price}:{token_id}
+    /// Listings indexed by collection and token id. Key: {tick}:{token_id}
     pub listings_by_tick: ListingsByTickPartition,
     /// Seller's active listings. Key: {spk}:{tick}:{token_id}
     pub address_listings: AddressListingsPartition,

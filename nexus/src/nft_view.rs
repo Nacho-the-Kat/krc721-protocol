@@ -792,7 +792,7 @@ impl DbView {
     // --- MARKETPLACE ---
     // ---------------------
 
-    /// Get active listings for a collection, sorted by price (ascending)
+    /// Get active listings for a collection, ordered by token id.
     #[instrument(level = "error", skip(self), err)]
     pub fn krc721_active_listings(
         &self,
@@ -825,7 +825,6 @@ impl DbView {
             Ok(ListingEntry {
                 tick: key.tick,
                 token_id: key.token_id,
-                price: key.price,
                 seller: listing.seller,
                 listing_tx_id: listing.listing_tx_id,
                 redeem_script: listing.redeem_script,
@@ -833,7 +832,6 @@ impl DbView {
             })
         };
 
-        // Use price-sorted index. Offset is op_score but we use price=0 as start
         match direction {
             Direction::Forward => Ok(self.process_iter(
                 rtx,
@@ -841,11 +839,9 @@ impl DbView {
                     rtx,
                     ListingByTickKey {
                         tick,
-                        price: offset,
-                        token_id: 0,
+                        token_id: offset,
                     }..=ListingByTickKey {
                         tick,
-                        price: u64::MAX,
                         token_id: u64::MAX,
                     },
                 ),
@@ -858,14 +854,9 @@ impl DbView {
                     .listings_by_tick
                     .range_rtx(
                         rtx,
-                        ListingByTickKey {
+                        ListingByTickKey { tick, token_id: 0 }..=ListingByTickKey {
                             tick,
-                            price: 0,
-                            token_id: 0,
-                        }..=ListingByTickKey {
-                            tick,
-                            price: offset,
-                            token_id: u64::MAX,
+                            token_id: offset,
                         },
                     )
                     .rev(),
@@ -913,7 +904,6 @@ impl DbView {
             Ok(ListingEntry {
                 tick: key.tick,
                 token_id: key.token_id,
-                price: listing.price,
                 seller: listing.seller,
                 listing_tx_id: listing.listing_tx_id,
                 redeem_script: listing.redeem_script,
@@ -967,7 +957,6 @@ impl DbView {
 pub struct ListingEntry {
     pub tick: Tick,
     pub token_id: u64,
-    pub price: u64,
     pub seller: ScriptPublicKey,
     pub listing_tx_id: TransactionId,
     pub redeem_script: Vec<u8>,

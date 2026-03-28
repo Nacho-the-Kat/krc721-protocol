@@ -638,7 +638,7 @@ impl Processor {
         Ok(premint_count)
     }
     /// Remove listing entries created above the score threshold during a reorg.
-    /// Cleans up all 3 listing partitions: primary listings, price-sorted index, and seller index.
+    /// Cleans up all 3 listing partitions: primary listings, collection index, and seller index.
     fn remove_affected_listings(
         &self,
         tx: &mut WriteTransaction,
@@ -665,12 +665,11 @@ impl Processor {
             // Remove from primary partition
             self.db.listings.remove_wtx(tx, key)?;
 
-            // Remove from price-sorted index
+            // Remove from collection index
             self.db.listings_by_tick.remove_wtx(
                 tx,
                 &ListingByTickKey {
                     tick: key.tick,
-                    price: listing.price,
                     token_id: key.token_id,
                 },
             )?;
@@ -1256,12 +1255,6 @@ impl Processor {
         info: &ListingInfo,
     ) -> Result<Result<(), CtxValidationError>> {
         use kaspa_txscript::pay_to_script_hash_script;
-        use krc721_core::constants::MIN_LISTING_PRICE;
-
-        // Validate price
-        if info.price < MIN_LISTING_PRICE {
-            return Ok(Err(CtxValidationError::InvalidListingPrice));
-        }
 
         // Validate P2SH address matches the redeem script (Kasplex-style verification)
         let expected_p2sh_spk = pay_to_script_hash_script(&info.redeem_script);
@@ -1306,7 +1299,6 @@ impl Processor {
 
         // Store the listing
         let listing_value = ListingValue {
-            price: info.price,
             seller: common.sender.clone(),
             listing_tx_id: common.tx_id,
             utxo_address: info.utxo_address.clone(),
@@ -1323,7 +1315,6 @@ impl Processor {
             wtx,
             ListingByTickKey {
                 tick: common.tick,
-                price: info.price,
                 token_id: info.token_id,
             },
             &(),
@@ -1364,11 +1355,6 @@ impl Processor {
         // Validate input[0] spends the listing UTXO
         if info.listing_utxo_txid != listing.listing_tx_id {
             return Ok(Err(CtxValidationError::WrongListingUtxo));
-        }
-
-        // Validate payment >= listing price
-        if info.payment_amount < listing.price {
-            return Ok(Err(CtxValidationError::InsufficientPayment));
         }
 
         // Transfer ownership from seller to buyer (same logic as process_transfer)
@@ -1415,14 +1401,9 @@ impl Processor {
 
         // Clean up listing state
         self.db.listings.remove_wtx(wtx, &listing_key)?;
-        self.db.listings_by_tick.remove_wtx(
-            wtx,
-            &ListingByTickKey {
-                tick,
-                price: listing.price,
-                token_id,
-            },
-        )?;
+        self.db
+            .listings_by_tick
+            .remove_wtx(wtx, &ListingByTickKey { tick, token_id })?;
         self.db.address_listings.remove_wtx(
             wtx,
             &AddressHoldingKey {

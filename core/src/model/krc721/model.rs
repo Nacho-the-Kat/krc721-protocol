@@ -377,9 +377,6 @@ pub struct ListingState {
     #[serde(rename = "tokenId")]
     #[serde_as(as = "DisplayFromStr")]
     pub token_id: u64,
-    /// Asking price in sompi
-    #[serde_as(as = "DisplayFromStr")]
-    pub price: u64,
     /// Seller's ScriptPublicKey
     #[serde(skip)]
     pub seller: ScriptPublicKey,
@@ -404,8 +401,6 @@ pub struct ListingMetaWrapper {
     #[serde(rename = "tokenId")]
     #[serde_as(as = "DisplayFromStr")]
     pub token_id: u64,
-    #[serde_as(as = "DisplayFromStr")]
-    pub price: u64,
     pub seller: Address,
     #[serde(rename = "listingTxId")]
     pub listing_tx_id: TransactionId,
@@ -603,10 +598,6 @@ pub struct UserOperation {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde_as(as = "Option<DisplayFromStr>")]
     pub premint: Option<u64>,
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    pub price: Option<u64>,
 }
 
 impl UserOperation {
@@ -628,7 +619,6 @@ impl UserOperation {
             daa_mint_start: None,
             discount_fee: None,
             premint: None,
-            price: None,
         })
     }
 
@@ -666,11 +656,6 @@ impl UserOperation {
 
     pub fn with_discount_fee(mut self, fee: u64) -> Self {
         self.discount_fee = Some(fee);
-        self
-    }
-
-    pub fn with_price(mut self, price: u64) -> Self {
-        self.price = Some(price);
         self
     }
 }
@@ -741,7 +726,6 @@ impl UserOperation {
             daa_mint_start: None,
             discount_fee: None,
             premint: None,
-            price: None,
         }
     }
 }

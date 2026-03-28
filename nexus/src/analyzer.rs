@@ -490,10 +490,6 @@ impl Analyzer {
                 let token_id = model
                     .token_id
                     .ok_or(AnalyzerError::OpListMissingValue("token_id"))?;
-                let price = model
-                    .price
-                    .ok_or(AnalyzerError::OpListMissingValue("price"))?;
-
                 // Compute the expected P2SH listing address from sender's pubkey
                 let sender_pubkey = sigtx
                     .sender_pubkey_bytes()
@@ -521,7 +517,6 @@ impl Analyzer {
                     },
                     info: OperationInfo::List(ListingInfo {
                         token_id,
-                        price,
                         utxo_address,
                         redeem_script,
                     }),
@@ -1381,12 +1376,10 @@ mod tests {
     #[test]
     fn test_list_deserialization() {
         // Test that List inscription JSON deserializes correctly
-        let json =
-            r#"{"p":"krc-721","op":"list","tick":"KASPA","tokenId":"42","price":"1500000000"}"#;
+        let json = r#"{"p":"krc-721","op":"list","tick":"KASPA","tokenId":"42"}"#;
         let op: UserOperation = serde_json::from_str(json).unwrap();
         assert_eq!(op.op, Op::List);
         assert_eq!(op.token_id, Some(42));
-        assert_eq!(op.price, Some(1_500_000_000));
     }
 
     #[test]
@@ -1396,28 +1389,24 @@ mod tests {
         let op: UserOperation = serde_json::from_str(json).unwrap();
         assert_eq!(op.op, Op::Send);
         assert_eq!(op.token_id, Some(42));
-        assert_eq!(op.price, None);
     }
 
     #[test]
     fn test_list_serialization_roundtrip() {
         let op = UserOperation::try_new(Protocol::Krc721, Op::List, "KASPA")
             .unwrap()
-            .with_token_id(42)
-            .with_price(1_500_000_000);
+            .with_token_id(42);
         let json = serde_json::to_string(&op).unwrap();
         let parsed: UserOperation = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.op, Op::List);
         assert_eq!(parsed.token_id, Some(42));
-        assert_eq!(parsed.price, Some(1_500_000_000));
     }
 
     #[test]
     fn test_detect_valid_list_inscription() {
         let list_op = UserOperation::try_new(Protocol::Krc721, Op::List, "KASPA")
             .unwrap()
-            .with_token_id(42)
-            .with_price(1_500_000_000);
+            .with_token_id(42);
 
         let script = create_test_inscription(list_op);
 
@@ -1437,7 +1426,6 @@ mod tests {
         match &operation.info {
             OperationInfo::List(info) => {
                 assert_eq!(info.token_id, 42);
-                assert_eq!(info.price, 1_500_000_000);
             }
             other => panic!("Expected List, got {:?}", other),
         }
@@ -1445,9 +1433,7 @@ mod tests {
 
     #[test]
     fn test_detect_list_missing_token_id() {
-        let list_op = UserOperation::try_new(Protocol::Krc721, Op::List, "KASPA")
-            .unwrap()
-            .with_price(1_500_000_000);
+        let list_op = UserOperation::try_new(Protocol::Krc721, Op::List, "KASPA").unwrap();
         // No token_id
 
         let script = create_test_inscription(list_op);
@@ -1462,28 +1448,6 @@ mod tests {
         assert!(matches!(
             result,
             Err(AnalyzerError::OpListMissingValue(field)) if field == "token_id"
-        ));
-    }
-
-    #[test]
-    fn test_detect_list_missing_price() {
-        let list_op = UserOperation::try_new(Protocol::Krc721, Op::List, "KASPA")
-            .unwrap()
-            .with_token_id(42);
-        // No price
-
-        let script = create_test_inscription(list_op);
-        let tx = TestTransaction::with_outputs(
-            script,
-            vec![TransactionOutput {
-                value: 1000,
-                script_public_key: ScriptPublicKey::new(0, vec![0u8; 34].into()),
-            }],
-        );
-        let result = detect_krc721(&tx);
-        assert!(matches!(
-            result,
-            Err(AnalyzerError::OpListMissingValue(field)) if field == "price"
         ));
     }
 

@@ -129,9 +129,6 @@ pub struct ListingInfo {
     #[serde(rename = "tokenId")]
     #[serde_as(as = "DisplayFromStr")]
     pub token_id: u64,
-    /// Asking price in sompi
-    #[serde_as(as = "DisplayFromStr")]
-    pub price: u64,
     /// The P2SH address where the listing UTXO was sent
     #[serde(skip)]
     pub utxo_address: ScriptPublicKey,
@@ -146,7 +143,7 @@ pub struct SendInfo {
     #[serde(rename = "tokenId")]
     #[serde_as(as = "DisplayFromStr")]
     pub token_id: u64,
-    /// Payment amount from tx output[0] (validated against listing price)
+    /// Payment amount from tx output[0]
     #[serde(skip)]
     pub payment_amount: u64,
     /// The buyer's address (from tx output[1])
@@ -247,9 +244,6 @@ pub enum CtxValidationError {
     #[error("Listing not found for this token")]
     ListingNotFound,
 
-    #[error("Insufficient payment for listing price")]
-    InsufficientPayment,
-
     #[error("Input does not spend the listing UTXO")]
     WrongListingUtxo,
 
@@ -258,9 +252,6 @@ pub enum CtxValidationError {
 
     #[error("Invalid listing P2SH address")]
     InvalidListingP2sh,
-
-    #[error("Listing price must be greater than zero")]
-    InvalidListingPrice,
 }
 
 #[derive(Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]

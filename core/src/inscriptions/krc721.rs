@@ -62,7 +62,6 @@ pub fn nft_deploy_demo(pubkey: &secp256k1::PublicKey) -> (Address, Vec<u8>) {
         daa_mint_start: None,
         discount_fee: None,
         premint: None,
-        price: None,
     };
 
     let json = serde_json::to_string(&deploy_op).unwrap();
@@ -102,7 +101,6 @@ pub fn nft_deploy_demo_(pubkey: &[u8]) -> (Address, Vec<u8>) {
         daa_mint_start: None,
         discount_fee: None,
         premint: None,
-        price: None,
     };
 
     let json = serde_json::to_string(&deploy_op).unwrap();
@@ -142,7 +140,6 @@ pub fn nft_mint_demo(pubkey: &secp256k1::PublicKey) -> (Address, Vec<u8>) {
         daa_mint_start: None,
         discount_fee: None,
         premint: None,
-        price: None,
     };
 
     let json = serde_json::to_string(&mint_op).unwrap();
@@ -182,7 +179,6 @@ pub fn nft_mint_demo_(pubkey: &[u8]) -> (Address, Vec<u8>) {
         daa_mint_start: None,
         discount_fee: None,
         premint: None,
-        price: None,
     };
 
     let json = serde_json::to_string(&mint_op).unwrap();
@@ -223,7 +219,6 @@ pub fn nft_transfer_demo(pubkey: &secp256k1::PublicKey) -> (Address, Vec<u8>) {
         daa_mint_start: None,
         discount_fee: None,
         premint: None,
-        price: None,
     };
 
     let json = serde_json::to_string(&mint_op).unwrap();
