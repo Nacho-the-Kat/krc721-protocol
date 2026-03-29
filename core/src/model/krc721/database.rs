@@ -146,9 +146,10 @@ pub struct SendInfo {
     /// Payment amount from tx output[0]
     #[serde(skip)]
     pub payment_amount: u64,
-    /// The buyer's address (from tx output[1])
+    /// The buyer's address (from tx output[1]).
+    /// `None` when output[1] is absent — treated as a cancel/delist by the owner.
     #[serde(skip)]
-    pub buyer: ScriptPublicKey,
+    pub buyer: Option<ScriptPublicKey>,
     /// The listing UTXO txid being spent (from input[0].previous_outpoint)
     #[serde(skip)]
     pub listing_utxo_txid: TransactionId,

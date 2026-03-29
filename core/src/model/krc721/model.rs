@@ -187,9 +187,10 @@ impl OperationMetaWrapper {
             OperationInfo::Mint(MintInfo { ref to, .. }) => {
                 Some(extract_script_pub_key_address(to, prefix)?)
             }
-            OperationInfo::Send(SendInfo { ref buyer, .. }) => {
-                Some(extract_script_pub_key_address(buyer, prefix)?)
-            }
+            OperationInfo::Send(SendInfo { ref buyer, .. }) => buyer
+                .as_ref()
+                .map(|b| extract_script_pub_key_address(b, prefix))
+                .transpose()?,
             _ => None,
         };
 

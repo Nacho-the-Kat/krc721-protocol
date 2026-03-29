@@ -535,10 +535,9 @@ impl Analyzer {
                             "output[0] payment amount",
                         ))?;
 
-                // Buyer address from output[1]
-                let buyer = sigtx
-                    .output_spk(1)
-                    .ok_or(AnalyzerError::OpSendMissingValue("output[1] buyer address"))?;
+                // Buyer address from output[1] — optional.
+                // If absent the send is treated as a cancel/delist by the owner.
+                let buyer = sigtx.output_spk(1);
 
                 // The listing UTXO being spent (input[0].previous_outpoint.txid)
                 let listing_utxo_txid =
@@ -1491,7 +1490,10 @@ mod tests {
                 assert_eq!(info.payment_amount, 1_500_000_000);
                 assert_eq!(info.listing_utxo_txid, listing_txid);
                 // Buyer should be output[1]
-                assert_eq!(info.buyer.script(), &[20u8; 34]);
+                assert_eq!(
+                    info.buyer.as_ref().map(|b| b.script().to_vec()),
+                    Some(vec![20u8; 34])
+                );
             }
             other => panic!("Expected Send, got {:?}", other),
         }

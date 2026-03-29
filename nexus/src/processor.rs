@@ -1357,47 +1357,50 @@ impl Processor {
             return Ok(Err(CtxValidationError::WrongListingUtxo));
         }
 
-        // Transfer ownership from seller to buyer (same logic as process_transfer)
         let tick = common.tick;
         let token_id = info.token_id;
         let seller = listing.seller.clone();
-        let buyer = &info.buyer;
 
-        self.db.ownership_changes.insert_wtx(
-            wtx,
-            TokenMintsKey::with_seq(tx_score, tick, token_id, 0),
-            &(),
-        )?;
-        self.db.ownership_history.insert_wtx(
-            wtx,
-            OwnershipHistoryKey::with_score(tick, token_id, tx_score),
-            buyer,
-        )?;
-        self.db.current_ownership.insert_wtx(
-            wtx,
-            OwnershipKey { tick, token_id },
-            &CurrentOwnershipValue {
-                owner: buyer.clone(),
-                mod_tx_score: tx_score,
-            },
-        )?;
-        self.db.address_holdings.remove_wtx(
-            wtx,
-            &AddressHoldingKey {
-                spk: seller.clone(),
-                tick,
-                token_id,
-            },
-        )?;
-        self.db.address_holdings.insert_wtx(
-            wtx,
-            AddressHoldingKey {
-                spk: buyer.clone(),
-                tick,
-                token_id,
-            },
-            &tx_score,
-        )?;
+        // If output[1] is present this is a sale; if absent it is a cancel/delist.
+        if let Some(buyer) = &info.buyer {
+            // Transfer ownership from seller to buyer
+            self.db.ownership_changes.insert_wtx(
+                wtx,
+                TokenMintsKey::with_seq(tx_score, tick, token_id, 0),
+                &(),
+            )?;
+            self.db.ownership_history.insert_wtx(
+                wtx,
+                OwnershipHistoryKey::with_score(tick, token_id, tx_score),
+                buyer,
+            )?;
+            self.db.current_ownership.insert_wtx(
+                wtx,
+                OwnershipKey { tick, token_id },
+                &CurrentOwnershipValue {
+                    owner: buyer.clone(),
+                    mod_tx_score: tx_score,
+                },
+            )?;
+            self.db.address_holdings.remove_wtx(
+                wtx,
+                &AddressHoldingKey {
+                    spk: seller.clone(),
+                    tick,
+                    token_id,
+                },
+            )?;
+            self.db.address_holdings.insert_wtx(
+                wtx,
+                AddressHoldingKey {
+                    spk: buyer.clone(),
+                    tick,
+                    token_id,
+                },
+                &tx_score,
+            )?;
+        }
+        // If no buyer: listing is cancelled — ownership stays with seller, no history entry.
 
         // Clean up listing state
         self.db.listings.remove_wtx(wtx, &listing_key)?;
