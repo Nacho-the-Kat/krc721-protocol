@@ -168,10 +168,18 @@ Response:
         "tick": "FOO",
         "tokenId": "123",
         "owner": "kaspatest:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+        "opScoreMod": "456",
+        "status": {
+            "state": "listed",
+            "listingTxId": "0000000000000000000000000000000000000000000000000000000000000001",
+            "opScore": "789"
+        },
         "buri": "ipfs://..."
     }
 }
 ```
+
+`status.state` is `unlisted` by default. When the NFT is listed, the response also includes the listing transaction id and the listing operation score.
 
 #### Get Token Owners
 ```
@@ -187,7 +195,10 @@ Response:
             "tick": "FOO",
             "tokenId": "123",
             "owner": "kaspatest:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
-            "opScoreMod": "1000000000"
+            "opScoreMod": "1000000000",
+            "status": {
+                "state": "unlisted"
+            }
         }
     ],
     "next": 51
@@ -209,16 +220,30 @@ Response:
         {
             "tick": "FOO",
             "tokenId": "381",
+            "opScoreMod": "79993666",
+            "status": {
+                "state": "unlisted"
+            },
             "buri": "ipfs://..."
         },
         {
             "tick": "FOO",
             "tokenId": "382",
+            "opScoreMod": "79993667",
+            "status": {
+                "state": "listed",
+                "listingTxId": "0000000000000000000000000000000000000000000000000000000000000002",
+                "opScore": "80000001"
+            },
             "buri": "ipfs://..."
         },
         {
             "tick": "FOO",
             "tokenId": "31010",
+            "opScoreMod": "79993668",
+            "status": {
+                "state": "unlisted"
+            },
             "buri": "ipfs://..."
         }
     ],
@@ -241,7 +266,10 @@ Response:
     {
         "tick": "FOO",
         "tokenId": "381",
-        "opScoreMod": "79993666"
+        "opScoreMod": "79993666",
+        "status": {
+            "state": "unlisted"
+        }
     }
 }
 

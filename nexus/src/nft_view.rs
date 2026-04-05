@@ -5,11 +5,11 @@ use kaspa_consensus_core::tx::{ScriptPublicKey, TransactionId};
 use krc721_core::model::krc721::{
     AddressNftInfo, AvailableRange, AvailableRanges, CheckedOperation, Collection,
     CollectionLookupArgs, CollectionState, DeployInfoWithCommon, Direction, Score,
-    ScoredCheckedOperation, Tick, TickTokenOffset, TokenId, TokenLookupArgs,
+    ScoredCheckedOperation, Tick, TickTokenOffset, TokenId, TokenLookupArgs, TokenStatus,
 };
 use krc721_database::database::{
-    AddressHoldingKey, CurrentOwnershipValue, Db, DeploymentKey, OwnershipHistoryKey, OwnershipKey,
-    RangeKey, ScoredDeployInfoWithCommon,
+    AddressHoldingKey, CurrentOwnershipValue, Db, DeploymentKey, ListingByTickKey, ListingValue,
+    OwnershipHistoryKey, OwnershipKey, RangeKey, ScoredDeployInfoWithCommon,
 };
 use krc721_database::prelude::ReadTransaction;
 use std::sync::Arc;
@@ -37,12 +37,20 @@ pub struct SpkLookupArgs {
 pub struct NftLookupEntry {
     pub token_id: u64,
     pub mod_tx_score: u64,
+    pub listing: Option<ListingValue>,
 }
 
 pub struct Ownership {
     pub token_id: u64,
     pub owner: ScriptPublicKey,
     pub mod_tx_score: u64,
+    pub listing: Option<ListingValue>,
+}
+
+pub struct TokenLookupEntry {
+    pub owner: ScriptPublicKey,
+    pub mod_tx_score: u64,
+    pub listing: Option<ListingValue>,
 }
 
 pub struct TokenHistoryRecord {
@@ -79,6 +87,25 @@ impl DbView {
         })
         .take(limit + 1)
         .collect_split_last_result()
+    }
+
+    fn token_listing(
+        &self,
+        rtx: &ReadTransaction,
+        tick: Tick,
+        token_id: u64,
+    ) -> Result<Option<ListingValue>, Error> {
+        self.db
+            .listings
+            .get_rtx(rtx, &OwnershipKey { tick, token_id })
+            .map_err(Error::from)
+    }
+
+    fn token_status(listing: Option<&ListingValue>) -> TokenStatus {
+        match listing {
+            Some(listing) => TokenStatus::listed(listing.listing_tx_id, listing.op_score),
+            None => TokenStatus::unlisted(),
+        }
     }
 
     // ---------------------
@@ -223,7 +250,7 @@ impl DbView {
         &self,
         TokenLookupArgs { tick, id }: TokenLookupArgs,
         restricted_protocols: &[String],
-    ) -> Result<Option<CurrentOwnershipValue>> {
+    ) -> Result<Option<TokenLookupEntry>> {
         let rtx = self.db.read_tx();
         let v = self
             .db
@@ -238,7 +265,12 @@ impl DbView {
         if dinfo.info.has_incompatible_uri_prefix(restricted_protocols) {
             return Ok(None); // todo log
         }
-        Ok(Some(v))
+        let listing = self.token_listing(&rtx, tick, id)?;
+        Ok(Some(TokenLookupEntry {
+            owner: v.owner,
+            mod_tx_score: v.mod_tx_score,
+            listing,
+        }))
     }
 
     #[instrument(level = "error", skip(self), err)]
@@ -261,16 +293,18 @@ impl DbView {
         if dinfo.info.has_incompatible_uri_prefix(restricted_protocols) {
             return Ok(None); // todo log
         }
-        let processed_fn = |_rtx: &ReadTransaction,
+        let processed_fn = |rtx: &ReadTransaction,
                             OwnershipKey { token_id, .. }: OwnershipKey,
                             CurrentOwnershipValue {
                                 owner,
                                 mod_tx_score,
                             }: CurrentOwnershipValue| {
+            let listing = self.token_listing(rtx, tick, token_id)?;
             Ok(Ownership {
                 token_id,
                 owner,
                 mod_tx_score,
+                listing,
             })
         };
         match direction {
@@ -400,22 +434,26 @@ impl DbView {
                     mod_tx_score,
                 ) = r?;
                 if last_tick_info.info.common.tick == tick && !last_incompatible {
+                    let listing = self.token_listing(rtx, tick, token_id)?;
                     c.push(AddressNftInfo {
                         tick,
                         tick_metadata: Some(last_tick_info.info.info.metadata.clone()),
                         token_id,
                         op_score_modified: mod_tx_score,
+                        status: Self::token_status(listing.as_ref()),
                     })
                 } else if last_tick_info.info.common.tick != tick {
                     let depl = self.db.collection_registry.get_rtx(rtx, &tick)?.unwrap();
                     last_incompatible = depl.info.has_incompatible_uri_prefix(restricted_protocols);
                     *last_tick_info = depl;
                     if !last_incompatible {
+                        let listing = self.token_listing(rtx, tick, token_id)?;
                         c.push(AddressNftInfo {
                             tick,
                             tick_metadata: Some(last_tick_info.info.info.metadata.clone()),
                             token_id,
                             op_score_modified: mod_tx_score,
+                            status: Self::token_status(listing.as_ref()),
                         })
                     }
                 }
@@ -494,13 +532,15 @@ impl DbView {
             return Ok(None); // todo log
         }
 
-        let processed_fn = |_rtx: &ReadTransaction,
+        let processed_fn = |rtx: &ReadTransaction,
                             AddressHoldingKey { token_id, spk, .. }: AddressHoldingKey,
                             mod_tx_score: u64| {
             trace!("spk is {spk:?}");
+            let listing = self.token_listing(rtx, tick, token_id)?;
             Ok(NftLookupEntry {
                 token_id,
                 mod_tx_score,
+                listing,
             })
         };
         match direction {
@@ -747,4 +787,178 @@ impl DbView {
             Ok(Some(AvailableRanges::Available(ranges)))
         }
     }
+
+    // ---------------------
+    // --- MARKETPLACE ---
+    // ---------------------
+
+    /// Get active listings for a collection, ordered by token id.
+    #[instrument(level = "error", skip(self), err)]
+    pub fn krc721_active_listings(
+        &self,
+        tick: Tick,
+        IteratorArgs {
+            offset,
+            direction,
+            limit,
+        }: IteratorArgs<Score>,
+    ) -> Result<Option<(Vec<ListingEntry>, ListingEntry)>> {
+        let rtx = &self.db.read_tx();
+        // Verify collection exists
+        if self.db.collection_registry.get_rtx(rtx, &tick)?.is_none() {
+            return Ok(None);
+        }
+
+        let processed_fn = |_rtx: &ReadTransaction, key: ListingByTickKey, _: ()| {
+            // Look up the full listing data
+            let listing = self
+                .db
+                .listings
+                .get_rtx(
+                    _rtx,
+                    &OwnershipKey {
+                        tick: key.tick,
+                        token_id: key.token_id,
+                    },
+                )?
+                .ok_or(Error::custom("listing index inconsistency"))?;
+            Ok(ListingEntry {
+                tick: key.tick,
+                token_id: key.token_id,
+                seller: listing.seller,
+                listing_tx_id: listing.listing_tx_id,
+                redeem_script: listing.redeem_script,
+                op_score: listing.op_score,
+            })
+        };
+
+        match direction {
+            Direction::Forward => Ok(self.process_iter(
+                rtx,
+                self.db.listings_by_tick.range_rtx(
+                    rtx,
+                    ListingByTickKey {
+                        tick,
+                        token_id: offset,
+                    }..=ListingByTickKey {
+                        tick,
+                        token_id: u64::MAX,
+                    },
+                ),
+                limit,
+                processed_fn,
+            )?),
+            Direction::Backward => Ok(self.process_iter(
+                rtx,
+                self.db
+                    .listings_by_tick
+                    .range_rtx(
+                        rtx,
+                        ListingByTickKey { tick, token_id: 0 }..=ListingByTickKey {
+                            tick,
+                            token_id: offset,
+                        },
+                    )
+                    .rev(),
+                limit,
+                processed_fn,
+            )?),
+        }
+    }
+
+    /// Look up a single listing by tick and token_id
+    #[instrument(level = "error", skip(self), err)]
+    pub fn krc721_listing_lookup(&self, tick: Tick, token_id: u64) -> Result<Option<ListingValue>> {
+        let rtx = self.db.read_tx();
+        Ok(self
+            .db
+            .listings
+            .get_rtx(&rtx, &OwnershipKey { tick, token_id })?)
+    }
+
+    /// Get active listings for an address
+    #[instrument(level = "error", skip(self), err)]
+    pub fn krc721_address_listings(
+        &self,
+        spk: &ScriptPublicKey,
+        IteratorArgs {
+            offset,
+            direction,
+            limit,
+        }: IteratorArgs<TickTokenOffset>,
+    ) -> Result<Option<(Vec<ListingEntry>, ListingEntry)>> {
+        let rtx = &self.db.read_tx();
+
+        let processed_fn = |_rtx: &ReadTransaction, key: AddressHoldingKey, _score: u64| {
+            let listing = self
+                .db
+                .listings
+                .get_rtx(
+                    _rtx,
+                    &OwnershipKey {
+                        tick: key.tick,
+                        token_id: key.token_id,
+                    },
+                )?
+                .ok_or(Error::custom("listing index inconsistency"))?;
+            Ok(ListingEntry {
+                tick: key.tick,
+                token_id: key.token_id,
+                seller: listing.seller,
+                listing_tx_id: listing.listing_tx_id,
+                redeem_script: listing.redeem_script,
+                op_score: listing.op_score,
+            })
+        };
+
+        match direction {
+            Direction::Forward => Ok(self.process_iter(
+                rtx,
+                self.db.address_listings.range_rtx(
+                    rtx,
+                    AddressHoldingKey {
+                        spk: spk.clone(),
+                        tick: offset.tick,
+                        token_id: offset.token_id,
+                    }..=AddressHoldingKey {
+                        spk: spk.clone(),
+                        tick: Tick::MAX,
+                        token_id: u64::MAX,
+                    },
+                ),
+                limit,
+                processed_fn,
+            )?),
+            Direction::Backward => Ok(self.process_iter(
+                rtx,
+                self.db
+                    .address_listings
+                    .range_rtx(
+                        rtx,
+                        AddressHoldingKey {
+                            spk: spk.clone(),
+                            tick: Tick::MIN,
+                            token_id: 0,
+                        }..=AddressHoldingKey {
+                            spk: spk.clone(),
+                            tick: offset.tick,
+                            token_id: offset.token_id,
+                        },
+                    )
+                    .rev(),
+                limit,
+                processed_fn,
+            )?),
+        }
+    }
+}
+
+/// A listing entry returned from view queries
+pub struct ListingEntry {
+    pub tick: Tick,
+    pub token_id: u64,
+    pub seller: ScriptPublicKey,
+    pub listing_tx_id: TransactionId,
+    pub redeem_script: Vec<u8>,
+    pub op_score: u64,
 }
