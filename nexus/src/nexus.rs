@@ -296,6 +296,7 @@ impl Nexus {
 
         self.inner
             .consumer
+            .clone()
             .handle_virtual_chain_changed(notification)?;
         Ok(())
     }
