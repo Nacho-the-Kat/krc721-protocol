@@ -47,7 +47,7 @@ impl SyncerT for Syncer {
         *self.last_known_block.lock().unwrap()
     }
 
-    fn spawn(self: Arc<Self>, last_known_block: RpcHash) {
+    fn spawn(self: Arc<Self>, last_known_block: BlueScoredChainBlockHash) {
         self.spawn_sync_task(last_known_block);
     }
 
@@ -109,6 +109,29 @@ impl Syncer {
                 .unwrap()
                 .expect("last known block is not set");
             info!("Syncing from block: {:?}", from);
+
+            if from >= sink {
+                info!("last known block is at or beyond sync target, state is synced");
+                let notification = VirtualChainChanges {
+                    removed_chain_block_hashes: Arc::new(vec![]),
+                    mergesets: vec![],
+                };
+                if let Err(err) = self
+                    .processor
+                    .send_historical_virtual_chain_changed_notification_and_apply_queue(
+                        notification,
+                    )
+                    .map_err(|_| Error::SendError)
+                {
+                    error!("Failed to apply queued notification after sync: {:?}", err);
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    continue;
+                }
+                self.is_synced.store(true, Ordering::SeqCst);
+                *self.target.lock().unwrap() = None;
+                break;
+            }
+
             let Ok(GetVirtualChainFromBlockV2Response {
                 removed_chain_block_hashes,
                 added_chain_block_hashes,
@@ -213,15 +236,12 @@ impl Syncer {
         });
     }
 
-    fn spawn_sync_task(self: &Arc<Self>, last_known_block: RpcHash) {
+    fn spawn_sync_task(self: &Arc<Self>, last_known_block: BlueScoredChainBlockHash) {
         let mut last_known_block_guard = self.last_known_block.lock().unwrap();
         if last_known_block_guard.is_some() {
             panic!("syncer is already initialized with last known block");
         }
-        last_known_block_guard.replace(BlueScoredChainBlockHash {
-            blue_score: 0,
-            block_hash: last_known_block,
-        });
+        last_known_block_guard.replace(last_known_block);
         self.spawn_sync_task_impl();
     }
 }
@@ -382,6 +402,6 @@ impl MergesetEntropyBuilder {
 pub trait SyncerT: Send + Sync + 'static {
     fn is_synced(&self) -> bool;
     fn last_known_block(&self) -> Option<BlueScoredChainBlockHash>;
-    fn spawn(self: Arc<Self>, last_known_block: RpcHash);
+    fn spawn(self: Arc<Self>, last_known_block: BlueScoredChainBlockHash);
     fn shutdown(&self);
 }
