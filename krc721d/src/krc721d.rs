@@ -318,9 +318,8 @@ impl Server {
 
                     let last_known_block = {
                         let tx = db.read_tx();
-                        let last_known_block = db
-                            .chain_block_scores
-                            .last_accepted_block_rtx(&tx)?;
+                        let last_known_block =
+                            db.chain_block_scores.last_accepted_block_rtx(&tx)?;
                         if last_known_block.is_none() {
                             warn!("no last known block hash found in the database");
                         }

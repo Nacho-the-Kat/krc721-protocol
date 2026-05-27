@@ -152,10 +152,9 @@ impl Syncer {
                     sink
                 });
                 info!("Target: {:?}", target);
-                if chain_block_accepted_transactions
-                    .iter()
-                    .any(|d| d.chain_block_header.blue_score.unwrap_or_default() >= target.blue_score)
-                {
+                if chain_block_accepted_transactions.iter().any(|d| {
+                    d.chain_block_header.blue_score.unwrap_or_default() >= target.blue_score
+                }) {
                     info!("added_chain_block_hashes contains target, target is reached");
                     true
                 } else {
@@ -306,8 +305,9 @@ pub fn process_acceptance_data(
                 let merged_block_hash = verbose_data.and_then(|v| v.block_hash).unwrap_or_default();
                 let block_time = verbose_data.and_then(|v| v.block_time).unwrap_or_default();
                 let next_index = merged_block_indexes.len();
-                let block_index_within_mergeset =
-                    *merged_block_indexes.entry(merged_block_hash).or_insert_with(|| {
+                let block_index_within_mergeset = *merged_block_indexes
+                    .entry(merged_block_hash)
+                    .or_insert_with(|| {
                         entropy_builder.add_block_hash(&merged_block_hash);
                         next_index
                     });
@@ -377,7 +377,11 @@ fn rpc_transaction_fee(tx: &RpcOptionalTransaction) -> u64 {
         .filter_map(|verbose| verbose.utxo_entry.as_ref())
         .filter_map(|utxo| utxo.amount)
         .sum::<u64>();
-    let output_sum = tx.outputs.iter().filter_map(|output| output.value).sum::<u64>();
+    let output_sum = tx
+        .outputs
+        .iter()
+        .filter_map(|output| output.value)
+        .sum::<u64>();
     input_sum.saturating_sub(output_sum)
 }
 

@@ -5,7 +5,10 @@ use krc721_core::model::krc721::BlueScoredChainBlockHash;
 
 #[async_trait]
 pub trait BridgeT: Send + Sync + 'static {
-    async fn get_historical_data(&self, from: RpcHash) -> Result<GetVirtualChainFromBlockV2Response>;
+    async fn get_historical_data(
+        &self,
+        from: RpcHash,
+    ) -> Result<GetVirtualChainFromBlockV2Response>;
     async fn get_sink(&self) -> Result<BlueScoredChainBlockHash>;
 }
 
@@ -24,7 +27,10 @@ impl RpcBridge {
 
 #[async_trait]
 impl BridgeT for RpcBridge {
-    async fn get_historical_data(&self, from: RpcHash) -> Result<GetVirtualChainFromBlockV2Response> {
+    async fn get_historical_data(
+        &self,
+        from: RpcHash,
+    ) -> Result<GetVirtualChainFromBlockV2Response> {
         let info = self.rpc_api.get_info().await?;
         if info.is_synced {
             Ok(self

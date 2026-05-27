@@ -306,6 +306,7 @@ mod tests {
     use kaspa_consensus_core::tx::TransactionId;
     use kaspa_consensus_core::tx::VerifiableTransaction;
     use kaspa_txscript::caches::Cache;
+    use kaspa_txscript::EngineCtx;
     use kaspa_txscript::SigCacheKey;
     use kaspa_txscript::TxScriptEngine;
     use kaspa_txscript_errors::TxScriptError;
@@ -453,10 +454,8 @@ mod tests {
                         input,
                         idx,
                         entry,
-                        &reused_values,
-                        &cache,
-                        false,
-                        false,
+                        EngineCtx::new(&cache).with_reused(&reused_values),
+                        Default::default(),
                     )
                     .execute()
                 });
