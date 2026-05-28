@@ -688,7 +688,9 @@ impl Processor {
             redeem_script: list_info.redeem_script.clone(),
             op_score: list_op_score,
         };
-        self.db.listings.insert_wtx(tx, listing_key, &listing_value)?;
+        self.db
+            .listings
+            .insert_wtx(tx, listing_key, &listing_value)?;
         self.db.listings_by_tick.insert_wtx(
             tx,
             ListingByTickKey {
@@ -1592,7 +1594,7 @@ mod tests {
     fn dummy_pubkey_spk(byte: u8) -> ScriptPublicKey {
         // Build a P2PK-shaped SPK: OP_DATA_32 <32 bytes> OP_CHECKSIG
         let mut script = vec![0x20u8];
-        script.extend(std::iter::repeat(byte).take(32));
+        script.extend(std::iter::repeat_n(byte, 32));
         script.push(0xac);
         ScriptPublicKey::new(0, ScriptVec::from_iter(script))
     }
