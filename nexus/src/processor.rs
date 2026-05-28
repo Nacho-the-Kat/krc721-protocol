@@ -580,6 +580,18 @@ impl Processor {
             else {
                 continue;
             };
+
+            // A successful Send removed its listing entry as a side-effect
+            // when first processed. If the corresponding List is NOT being
+            // reorged out (it survives below the threshold), the listing
+            // must be re-inserted so a later replay of the Send finds it.
+            // We iterate ops in ascending score order, so any List that is
+            // also being reorged has already cleared tx_id_to_opscore by the
+            // time we reach this Send — the lookup inside the helper returns
+            // None in that case and the restore is correctly skipped.
+            if let OperationInfo::Send(send_info) = &operation.info {
+                self.restore_listing_for_reorged_send(tx, &operation.common, send_info)?;
+            }
             diff.security_fees += operation.common.fee; // todo should we calculate security fee for transfer??
             match operation.info {
                 OperationInfo::Deploy(d) => {
@@ -637,6 +649,66 @@ impl Processor {
         }
         Ok(premint_count)
     }
+    /// Restore the listing entry consumed by a successful Send that is being
+    /// reorged out. Without this, the listing partition silently loses an
+    /// entry that the underlying List on-chain still backs, and any later
+    /// Send for that token fails with `ListingNotFound`.
+    fn restore_listing_for_reorged_send(
+        &self,
+        tx: &mut WriteTransaction,
+        common: &OperationCommon,
+        send_info: &SendInfo,
+    ) -> krc721_database::result::Result<()> {
+        let list_tx_id = send_info.listing_utxo_txid;
+        let Some(list_op_score) = self.db.tx_id_to_opscore.get_wtx(tx, &list_tx_id)? else {
+            // List is also being reorged (its tx_id_to_opscore entry was
+            // already removed earlier in the ascending-score loop), or the
+            // listing UTXO was never a tracked List op.
+            return Ok(());
+        };
+        let Some(checked) = self.db.operation_history.get_wtx(tx, &list_op_score)? else {
+            return Ok(());
+        };
+        if checked.error.is_some() {
+            // Rejected List never inserted a listings entry.
+            return Ok(());
+        }
+        let OperationInfo::List(list_info) = &checked.operation.info else {
+            return Ok(());
+        };
+
+        let listing_key = OwnershipKey {
+            tick: common.tick,
+            token_id: send_info.token_id,
+        };
+        let listing_value = ListingValue {
+            seller: checked.operation.common.sender.clone(),
+            listing_tx_id: list_tx_id,
+            utxo_address: list_info.utxo_address.clone(),
+            redeem_script: list_info.redeem_script.clone(),
+            op_score: list_op_score,
+        };
+        self.db.listings.insert_wtx(tx, listing_key, &listing_value)?;
+        self.db.listings_by_tick.insert_wtx(
+            tx,
+            ListingByTickKey {
+                tick: common.tick,
+                token_id: send_info.token_id,
+            },
+            &(),
+        )?;
+        self.db.address_listings.insert_wtx(
+            tx,
+            AddressHoldingKey {
+                spk: checked.operation.common.sender.clone(),
+                tick: common.tick,
+                token_id: send_info.token_id,
+            },
+            &list_op_score,
+        )?;
+        Ok(())
+    }
+
     /// Remove listing entries created above the score threshold during a reorg.
     /// Cleans up all 3 listing partitions: primary listings, collection index, and seller index.
     fn remove_affected_listings(
@@ -1499,6 +1571,285 @@ struct ContextOperation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kaspa_consensus_core::tx::{ScriptPublicKey, ScriptVec, TransactionId};
+    use kaspa_txscript::pay_to_script_hash_script;
+    use krc721_core::network::Network;
+    use std::str::FromStr;
+
+    fn temp_db_folder(name: &str) -> std::path::PathBuf {
+        let mut p = std::env::temp_dir();
+        p.push(format!(
+            "krc721_test_{}_{}",
+            name,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        p
+    }
+
+    fn dummy_pubkey_spk(byte: u8) -> ScriptPublicKey {
+        // Build a P2PK-shaped SPK: OP_DATA_32 <32 bytes> OP_CHECKSIG
+        let mut script = vec![0x20u8];
+        script.extend(std::iter::repeat(byte).take(32));
+        script.push(0xac);
+        ScriptPublicKey::new(0, ScriptVec::from_iter(script))
+    }
+
+    fn dummy_tx_id(byte: u8) -> TransactionId {
+        TransactionId::from_bytes([byte; 32])
+    }
+
+    /// Regression test for the reorg-loses-listing bug.
+    ///
+    /// Sequence:
+    ///   1. Seed a List op + listing entry at op_score 100.
+    ///   2. Seed a successful Send op at op_score 200 that consumed the listing
+    ///      (listings partition empty, ownership transferred to buyer).
+    ///   3. Run `remove_affected_operations(threshold = 200)` — simulates the
+    ///      Send's block being demoted from the virtual chain while the List
+    ///      block stays.
+    ///   4. Assert the listings entry is restored from the surviving List op,
+    ///      so a later replay of the Send won't fail with `ListingNotFound`.
+    #[test]
+    fn reorg_of_successful_send_restores_listing() {
+        let db_folder = temp_db_folder("reorg_restore_listing");
+        let db = Arc::new(Db::try_open(&db_folder, &Network::Testnet10).unwrap());
+        let counters = Arc::new(Counters::default());
+        let processor = Processor::new(db.clone(), counters, None, None);
+
+        let tick = Tick::from_str("TESTNFT").unwrap();
+        let token_id: u64 = 7;
+        let seller = dummy_pubkey_spk(0xAA);
+        let buyer = dummy_pubkey_spk(0xBB);
+
+        let list_tx_id = dummy_tx_id(0x11);
+        let list_op_score: u64 = 100;
+        let send_tx_id = dummy_tx_id(0x22);
+        let send_op_score: u64 = 200;
+
+        // A valid redeem script + matching P2SH SPK; content is irrelevant
+        // for this code path — we only need the round-trip to deserialize.
+        let redeem_script = vec![0x51u8; 8];
+        let utxo_address = pay_to_script_hash_script(&redeem_script);
+
+        // ---- Seed: persisted LIST op (still in chain after reorg) ----
+        let list_op = CheckedOperation {
+            operation: Operation {
+                common: OperationCommon {
+                    tick,
+                    tx_id: list_tx_id,
+                    block_time: 0,
+                    sender: seller.clone(),
+                    fee: 0,
+                    accepting_block_daa_score: 0,
+                },
+                info: OperationInfo::List(ListingInfo {
+                    token_id,
+                    utxo_address: utxo_address.clone(),
+                    redeem_script: redeem_script.clone(),
+                }),
+            },
+            error: None,
+        };
+        // ---- Seed: persisted successful SEND op (about to be reorged out) ----
+        let send_op = CheckedOperation {
+            operation: Operation {
+                common: OperationCommon {
+                    tick,
+                    tx_id: send_tx_id,
+                    block_time: 0,
+                    sender: seller.clone(),
+                    fee: 0,
+                    accepting_block_daa_score: 0,
+                },
+                info: OperationInfo::Send(SendInfo {
+                    token_id,
+                    payment_amount: 0,
+                    buyer: Some(buyer.clone()),
+                    listing_utxo_txid: list_tx_id,
+                }),
+            },
+            error: None,
+        };
+
+        {
+            let mut wtx = db.write_tx();
+            db.operation_history
+                .insert_wtx(&mut wtx, list_op_score, &list_op)
+                .unwrap();
+            db.tx_id_to_opscore
+                .insert_wtx(&mut wtx, list_tx_id, &list_op_score)
+                .unwrap();
+            db.operation_history
+                .insert_wtx(&mut wtx, send_op_score, &send_op)
+                .unwrap();
+            db.tx_id_to_opscore
+                .insert_wtx(&mut wtx, send_tx_id, &send_op_score)
+                .unwrap();
+            // The send already removed the listing on first processing, so the
+            // listings partitions start empty — the exact state that breaks
+            // when a later send replay arrives.
+            wtx.commit().unwrap().expect("seed commit");
+        }
+
+        let listing_key = OwnershipKey { tick, token_id };
+        {
+            let rtx = db.read_tx();
+            assert!(
+                db.listings.get_rtx(&rtx, &listing_key).unwrap().is_none(),
+                "precondition: listings entry must be absent before reorg",
+            );
+        }
+
+        // ---- Act: reorg out the SEND only ----
+        {
+            let mut wtx = db.write_tx();
+            processor
+                .remove_affected_operations(&mut wtx, send_op_score)
+                .unwrap();
+            wtx.commit().unwrap().expect("reorg commit");
+        }
+
+        // ---- Assert: listing entry was restored from the surviving LIST ----
+        let rtx = db.read_tx();
+        let restored = db
+            .listings
+            .get_rtx(&rtx, &listing_key)
+            .unwrap()
+            .expect("listing entry should be restored from surviving LIST op");
+        assert_eq!(restored.seller, seller);
+        assert_eq!(restored.listing_tx_id, list_tx_id);
+        assert_eq!(restored.utxo_address, utxo_address);
+        assert_eq!(restored.redeem_script, redeem_script);
+        assert_eq!(restored.op_score, list_op_score);
+
+        // The Send op record is gone, the List op record stays.
+        assert!(db
+            .operation_history
+            .get_rtx(&rtx, &send_op_score)
+            .unwrap()
+            .is_none());
+        assert!(db
+            .operation_history
+            .get_rtx(&rtx, &list_op_score)
+            .unwrap()
+            .is_some());
+
+        drop(rtx);
+        let _ = std::fs::remove_dir_all(&db_folder);
+    }
+
+    /// When BOTH the List and the Send are above the threshold (both being
+    /// reorged out), the restore must NOT fire — the List is no longer in
+    /// chain. Replay will re-process the List, re-inserting the listing, and
+    /// then the Send.
+    #[test]
+    fn reorg_of_both_list_and_send_does_not_restore() {
+        let db_folder = temp_db_folder("reorg_both_no_restore");
+        let db = Arc::new(Db::try_open(&db_folder, &Network::Testnet10).unwrap());
+        let counters = Arc::new(Counters::default());
+        let processor = Processor::new(db.clone(), counters, None, None);
+
+        let tick = Tick::from_str("TESTNFT").unwrap();
+        let token_id: u64 = 9;
+        let seller = dummy_pubkey_spk(0xCC);
+        let buyer = dummy_pubkey_spk(0xDD);
+
+        let list_tx_id = dummy_tx_id(0x33);
+        let list_op_score: u64 = 300;
+        let send_tx_id = dummy_tx_id(0x44);
+        let send_op_score: u64 = 400;
+
+        let redeem_script = vec![0x51u8; 8];
+        let utxo_address = pay_to_script_hash_script(&redeem_script);
+
+        let list_op = CheckedOperation {
+            operation: Operation {
+                common: OperationCommon {
+                    tick,
+                    tx_id: list_tx_id,
+                    block_time: 0,
+                    sender: seller.clone(),
+                    fee: 0,
+                    accepting_block_daa_score: 0,
+                },
+                info: OperationInfo::List(ListingInfo {
+                    token_id,
+                    utxo_address: utxo_address.clone(),
+                    redeem_script: redeem_script.clone(),
+                }),
+            },
+            error: None,
+        };
+        let send_op = CheckedOperation {
+            operation: Operation {
+                common: OperationCommon {
+                    tick,
+                    tx_id: send_tx_id,
+                    block_time: 0,
+                    sender: seller.clone(),
+                    fee: 0,
+                    accepting_block_daa_score: 0,
+                },
+                info: OperationInfo::Send(SendInfo {
+                    token_id,
+                    payment_amount: 0,
+                    buyer: Some(buyer.clone()),
+                    listing_utxo_txid: list_tx_id,
+                }),
+            },
+            error: None,
+        };
+
+        {
+            let mut wtx = db.write_tx();
+            db.operation_history
+                .insert_wtx(&mut wtx, list_op_score, &list_op)
+                .unwrap();
+            db.tx_id_to_opscore
+                .insert_wtx(&mut wtx, list_tx_id, &list_op_score)
+                .unwrap();
+            db.operation_history
+                .insert_wtx(&mut wtx, send_op_score, &send_op)
+                .unwrap();
+            db.tx_id_to_opscore
+                .insert_wtx(&mut wtx, send_tx_id, &send_op_score)
+                .unwrap();
+            wtx.commit().unwrap().expect("seed commit");
+        }
+
+        // Threshold below both ops — both reorged.
+        {
+            let mut wtx = db.write_tx();
+            processor
+                .remove_affected_operations(&mut wtx, list_op_score)
+                .unwrap();
+            wtx.commit().unwrap().expect("reorg commit");
+        }
+
+        let rtx = db.read_tx();
+        let listing_key = OwnershipKey { tick, token_id };
+        assert!(
+            db.listings.get_rtx(&rtx, &listing_key).unwrap().is_none(),
+            "no restore: when LIST is also reorged out, listing must stay absent",
+        );
+        // Both op records gone.
+        assert!(db
+            .operation_history
+            .get_rtx(&rtx, &list_op_score)
+            .unwrap()
+            .is_none());
+        assert!(db
+            .operation_history
+            .get_rtx(&rtx, &send_op_score)
+            .unwrap()
+            .is_none());
+
+        drop(rtx);
+        let _ = std::fs::remove_dir_all(&db_folder);
+    }
 
     #[tokio::test]
     async fn test_processor_shutdown() {
