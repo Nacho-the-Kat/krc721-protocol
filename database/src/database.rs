@@ -524,7 +524,7 @@ impl Db {
         self.keyspace.disk_space()
     }
 
-    pub fn take_snapshots(&self) -> [Snapshot; 20] {
+    pub fn take_snapshots(&self) -> [Snapshot; 23] {
         let keyspace = || self.keyspace.inner().clone();
         let _guard = self.snapshot_commit_rw.write().unwrap();
         let seq_no = self.keyspace.inner().instant();
@@ -552,6 +552,9 @@ impl Db {
             self.tx_id_to_rejection.snapshot_at(keyspace(), seq_no),
             self.serial_to_rejected_tx_id
                 .snapshot_at(keyspace(), seq_no),
+            self.listings.snapshot_at(keyspace(), seq_no),
+            self.listings_by_tick.snapshot_at(keyspace(), seq_no),
+            self.address_listings.snapshot_at(keyspace(), seq_no),
         ]
     }
 }
