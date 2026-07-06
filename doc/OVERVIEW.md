@@ -24,6 +24,6 @@ This indexer only supports IPFS CIDs for metadata and image URLs. All URLs must 
 
 Indexer deployments are available for the following networks:
 
-- `mainnet` at [https://mainnet.krc721.stream](https://mainnet.krc721.stream)
-- `testnet-10` at [https://testnet-10.krc721.stream](https://testnet-10.krc721.stream)
+- `mainnet` at [https://krc721.kat.foundation](https://krc721.kat.foundation)
+- `testnet-10` at [https://krc721-testnet.kat.foundation](https://krc721-testnet.kat.foundation)
 
