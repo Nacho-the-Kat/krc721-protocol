@@ -243,10 +243,17 @@ Response:
         "tick": "NACHO",
         "tokenId": "1",
         "owner": "kaspa:qps6zry9swaqjf5xehae5nsga2sx84xmzes2gc5y8lznaj4t6gm9w7klxrzq5",
-        "opScoreMod": "26236285306000"
+        "opScoreMod": "26236285306000",
+        "status": {
+            "state": "listed",
+            "listingTxId": "0000000000000000000000000000000000000000000000000000000000000001",
+            "opScore": "789"
+        }
     }
 }
 ```
+
+`status.state` is `unlisted` by default. When the NFT is listed, the response also includes the listing transaction id and the listing operation score.
 
 #### Get Token Owners
 ```
@@ -269,19 +276,28 @@ Response:
             "tick": "NACHO",
             "tokenId": "1",
             "owner": "kaspa:qps6zry9swaqjf5xehae5nsga2sx84xmzes2gc5y8lznaj4t6gm9w7klxrzq5",
-            "opScoreMod": "26236285306000"
+            "opScoreMod": "26236285306000",
+            "status": {
+                "state": "unlisted"
+            }
         },
         {
             "tick": "NACHO",
             "tokenId": "2",
             "owner": "kaspa:qznft0mg03nlvj5lu0xv4w4ddxffzsut4m7z3tucq0vm7jeh5urt2dpg8cgk0",
-            "opScoreMod": "91455826760001"
+            "opScoreMod": "91455826760001",
+            "status": {
+                "state": "unlisted"
+            }
         },
         {
             "tick": "NACHO",
             "tokenId": "3",
             "owner": "kaspa:qplfvwnt6ywwjz76d3358anh0kuymmamfr8ec86907rpfjygzp0ex4d283q3d",
-            "opScoreMod": "67448378712007"
+            "opScoreMod": "67448378712007",
+            "status": {
+                "state": "unlisted"
+            }
         }
     ],
     "next": 4
@@ -313,19 +329,30 @@ Response:
             "tick": "NACHO",
             "buri": "ipfs://bafybeifwjyipfzlorzaw42amf53lvo3x6hpfg5xhr6km5drjmucsftrfy4",
             "tokenId": "3",
-            "opScoreMod": "67448378712007"
+            "opScoreMod": "67448378712007",
+            "status": {
+                "state": "unlisted"
+            }
         },
         {
             "tick": "NACHO",
             "buri": "ipfs://bafybeifwjyipfzlorzaw42amf53lvo3x6hpfg5xhr6km5drjmucsftrfy4",
             "tokenId": "4",
-            "opScoreMod": "67448354408006"
+            "opScoreMod": "67448354408006",
+            "status": {
+                "state": "listed",
+                "listingTxId": "0000000000000000000000000000000000000000000000000000000000000002",
+                "opScore": "80000001"
+            }
         },
         {
             "tick": "NACHO",
             "buri": "ipfs://bafybeifwjyipfzlorzaw42amf53lvo3x6hpfg5xhr6km5drjmucsftrfy4",
             "tokenId": "8",
-            "opScoreMod": "70142421312002"
+            "opScoreMod": "70142421312002",
+            "status": {
+                "state": "unlisted"
+            }
         }
     ],
     "next": "NACHO-10"
@@ -354,17 +381,26 @@ Response:
         {
             "tick": "NACHO",
             "tokenId": "3",
-            "opScoreMod": "67448378712007"
+            "opScoreMod": "67448378712007",
+            "status": {
+                "state": "unlisted"
+            }
         },
         {
             "tick": "NACHO",
             "tokenId": "4",
-            "opScoreMod": "67448354408006"
+            "opScoreMod": "67448354408006",
+            "status": {
+                "state": "unlisted"
+            }
         },
         {
             "tick": "NACHO",
             "tokenId": "8",
-            "opScoreMod": "70142421312002"
+            "opScoreMod": "70142421312002",
+            "status": {
+                "state": "unlisted"
+            }
         }
     ],
     "next": 10

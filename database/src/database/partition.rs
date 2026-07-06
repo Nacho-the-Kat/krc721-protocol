@@ -1143,6 +1143,54 @@ impl SerialToRejectedTxIDPartition {
     }
 }
 
+// ================ MARKETPLACE LISTING PARTITIONS ================
+
+/// Value stored for each active listing
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct ListingValue {
+    pub seller: ScriptPublicKey,
+    pub listing_tx_id: TransactionId,
+    pub utxo_address: ScriptPublicKey,
+    pub redeem_script: Vec<u8>,
+    pub op_score: u64,
+}
+
+/// Primary listing lookup: Key = {tick}:{token_id}
+/// Same key structure as OwnershipKey — one listing per token
+pub type ListingsPartition = Partition<OwnershipKey, ListingValue>;
+
+/// Collection listing index: Key = {tick}:{token_id}
+/// Allows querying listings for a collection in token id order.
+pub struct ListingByTickKey {
+    pub tick: Tick,
+    pub token_id: u64,
+}
+
+impl Key for ListingByTickKey {
+    type OwnedKey = [u8; size_of::<Tick>() + size_of::<u64>()];
+
+    fn owned_key(&self) -> Self::OwnedKey {
+        let mut key = [0u8; size_of::<Tick>() + size_of::<u64>()];
+        let (tick, token_id) = key.split_at_mut(size_of::<Tick>());
+        tick.copy_from_slice(&self.tick);
+        token_id.copy_from_slice(&self.token_id.to_be_bytes());
+        key
+    }
+
+    fn from_key_bytes(key_bytes: &[u8]) -> Self {
+        let (tick, token_id) = key_bytes.split_at(size_of::<Tick>());
+        let tick = unsafe { Tick::new_unchecked(tick.try_into().unwrap()) };
+        let token_id = u64::from_be_bytes(token_id.try_into().unwrap());
+        Self { tick, token_id }
+    }
+}
+
+pub type ListingsByTickPartition = Partition<ListingByTickKey, ()>;
+
+/// Seller's active listings: Key = {spk}:{tick}:{token_id}
+/// Same key structure as AddressHoldingKey
+pub type AddressListingsPartition = Partition<AddressHoldingKey, ModTxScore>;
+
 #[cfg(test)]
 mod tests {
     use super::*;
